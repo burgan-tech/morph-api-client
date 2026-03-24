@@ -1,4 +1,6 @@
 import type { LogoutReason, TokenSet } from '../types.js';
+import type { JwtPayload } from '../util/jwt.js';
+import { decodeJwtPayload } from '../util/jwt.js';
 import type { MorphRuntime } from '../runtime.js';
 import { listAuthIdsForProvider } from '../config/validate.js';
 
@@ -79,5 +81,16 @@ export class AuthHandle {
     if (r.kind !== 'context') throw new Error('peekTokens requires a provider/context auth id');
     this.rt.assertAlive();
     return this.rt.tokens.loadTokens(r.authId, r.ref);
+  }
+
+  /** Decoded access token JWT claims, or null when no token is stored. No network, no refresh. */
+  async getClaims(): Promise<JwtPayload | null> {
+    const r = this.rt.parseAuthRef(this.authId);
+    if (r.kind !== 'context') throw new Error('getClaims requires a provider/context auth id');
+    this.rt.assertAlive();
+    const set = await this.rt.tokens.loadTokens(r.authId, r.ref);
+    if (!set?.accessToken) return null;
+    try { return decodeJwtPayload(set.accessToken); }
+    catch { return null; }
   }
 }

@@ -560,12 +560,31 @@ Unlike `hasValidToken()`, this **always** hits the IdP when preconditions are me
 
 ---
 
-### auth.peekTokens()
+### auth.getClaims()
 
-Returns the stored `TokenSet` for this context without network. Throws if auth id is provider-only.
+Returns decoded JWT claims from the stored access token, or `null` if no token is stored or the token is not a valid JWT. No network, no refresh — reads from vault only.
 
 ```typescript
-const t = await morph.auth('burgan-auth/1fa').peekTokens();
+const claims = await morph.auth('morph-auth/1fa').getClaims();
+if (claims) {
+  console.log(claims.sub);  // 'user-123'
+  console.log(claims.exp);  // 1711234567 (unix seconds)
+  console.log(claims.azp);  // 'my-client-id'
+}
+```
+
+Use `getClaims()` when you need to display user info, check token claims for routing decisions, or inspect provider-specific fields. The raw token never leaves the SDK.
+
+For all contexts at once (debug panels), use `morph.getTokenStatus()` which includes `claims` and `refreshClaims` per row.
+
+---
+
+### auth.peekTokens()
+
+Low-level escape hatch: returns the stored `TokenSet` (raw tokens) for this context without network. Prefer `getClaims()` for claim inspection — it avoids exposing raw tokens to application code.
+
+```typescript
+const t = await morph.auth('morph-auth/1fa').peekTokens();
 console.log(t?.expiresAt);
 ```
 
@@ -1098,6 +1117,7 @@ try {
 ---
 
 ## Utilities
+
 
 ### Browser Storage Factories
 

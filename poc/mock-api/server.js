@@ -38,6 +38,10 @@ function requireKeycloakToken(req, res, next) {
     algorithms: ['RS256'],
   }, (err, decoded) => {
     if (err) {
+      const isUpstream = /ECONNREFUSED|ENOTFOUND|ETIMEDOUT|network|socket|getaddrinfo/i.test(err.message);
+      if (isUpstream) {
+        return res.status(502).json({ error: 'upstream_unreachable', message: `Keycloak JWKS unavailable: ${err.message}` });
+      }
       return res.status(401).json({ error: 'invalid_token', message: err.message });
     }
     req.user = decoded;
@@ -58,17 +62,21 @@ async function requireGoogleToken(req, res, next) {
     return res.status(401).json({ error: 'missing_token', message: 'Authorization header required' });
   }
   const token = authHeader.split(' ')[1];
+  let response;
   try {
-    const response = await fetch(`https://oauth2.googleapis.com/tokeninfo?access_token=${token}`);
-    if (!response.ok) {
-      return res.status(401).json({ error: 'invalid_token', message: 'Google token validation failed' });
-    }
-    req.user = await response.json();
-    req.authLevel = 'google';
-    next();
+    response = await fetch(`https://oauth2.googleapis.com/tokeninfo?access_token=${token}`);
   } catch (err) {
-    return res.status(401).json({ error: 'validation_error', message: err.message });
+    return res.status(502).json({ error: 'upstream_unreachable', message: `Google tokeninfo unavailable: ${err.message}` });
   }
+  if (!response.ok) {
+    let body;
+    try { body = await response.json(); } catch { body = {}; }
+    const hint = body.error_description || body.error || `HTTP ${response.status}`;
+    return res.status(401).json({ error: 'invalid_token', message: `Google rejected token: ${hint}` });
+  }
+  req.user = await response.json();
+  req.authLevel = 'google';
+  next();
 }
 
 // ===========================================================================

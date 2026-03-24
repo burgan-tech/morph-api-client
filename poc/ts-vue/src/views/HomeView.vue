@@ -302,7 +302,7 @@ const providerOnlyModalData = computed(() => {
   const pk = providerOnlyModalKey.value;
   if (!pk) return null;
   try {
-    return morph.getProviderConfig(pk);
+    return morph.getProviderMeta(pk);
   } catch (e) {
     return { _error: e instanceof Error ? e.message : String(e) };
   }
@@ -743,7 +743,7 @@ async function runExchange(sourceAuthId: string, targetAuthId: string) {
           <h3>Provider: {{ providerOnlyModalKey }}</h3>
           <button type="button" class="modal-close" aria-label="Close" @click="closeProviderConfigModal">×</button>
         </header>
-        <p class="modal-meta mono"><code>morph.getProviderConfig('{{ providerOnlyModalKey }}')</code></p>
+        <p class="modal-meta mono"><code>morph.getProviderMeta('{{ providerOnlyModalKey }}')</code></p>
         <div v-if="providerOnlyModalData" class="json-tree-scroll json-tree-scroll--standalone">
           <JsonTreeView :data="providerOnlyModalData" :root-label="providerOnlyModalKey ?? undefined" />
         </div>
