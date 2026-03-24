@@ -52,7 +52,7 @@
     {
       "clientId": "morph-device",
       "name": "Morph Device Client",
-      "description": "Device-level auth via client_credentials. PoC uses client-secret; production uses private_key_jwt.",
+      "description": "Device-level auth via client_credentials (15s access token). PoC uses client-secret; production uses private_key_jwt.",
       "enabled": true,
       "clientAuthenticatorType": "client-secret",
       "secret": "morph-device-secret",
@@ -61,6 +61,7 @@
       "directAccessGrantsEnabled": false,
       "publicClient": false,
       "protocol": "openid-connect",
+      "fullScopeAllowed": true,
       "attributes": {
         "access.token.lifespan": "15"
       }
@@ -68,7 +69,7 @@
     {
       "clientId": "morph-login",
       "name": "Morph Login Client (2FA)",
-      "description": "User login via authorization_code. PoC defaults: 30s access, 60s client session idle (refresh window).",
+      "description": "User login via authorization_code. 30s access, 60s client session idle (refresh window). Token exchange enabled for 2FA→1FA flow.",
       "enabled": true,
       "clientAuthenticatorType": "client-secret",
       "secret": "morph-login-secret",
@@ -110,7 +111,8 @@
             "id.token.claim": "false",
             "access.token.claim": "true",
             "lightweight.claim": "false",
-            "introspection.token.claim": "true"
+            "introspection.token.claim": "true",
+            "userinfo.token.claim": "false"
           }
         }
       ]
@@ -118,7 +120,7 @@
     {
       "clientId": "morph-session",
       "name": "Morph Session Client (1FA)",
-      "description": "Session token via 2FA→1FA token exchange. PoC defaults: 20s access, 60s client session idle (refresh window).",
+      "description": "Session token via 2FA→1FA token exchange. 20s access, 60s client session idle. Token exchange enabled.",
       "enabled": true,
       "clientAuthenticatorType": "client-secret",
       "secret": "morph-session-secret",
@@ -127,6 +129,7 @@
       "serviceAccountsEnabled": false,
       "publicClient": false,
       "protocol": "openid-connect",
+      "fullScopeAllowed": true,
       "attributes": {
         "access.token.lifespan": "20",
         "client.session.idle.timeout": "60",
@@ -140,7 +143,8 @@
       "enabled": true,
       "bearerOnly": true,
       "publicClient": false,
-      "protocol": "openid-connect"
+      "protocol": "openid-connect",
+      "fullScopeAllowed": true
     }
   ]
 }
