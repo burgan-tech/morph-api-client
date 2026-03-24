@@ -1,0 +1,146 @@
+{
+  "realm": "morph",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "accessTokenLifespan": 300,
+  "ssoSessionIdleTimeout": 600,
+  "ssoSessionMaxLifespan": 1800,
+  "revokeRefreshToken": true,
+  "refreshTokenMaxReuse": 0,
+  "roles": {
+    "realm": [
+      { "name": "user", "description": "Standard user" },
+      { "name": "admin", "description": "Admin user" }
+    ]
+  },
+  "users": [
+    {
+      "username": "testuser",
+      "email": "testuser@morph-poc.com",
+      "firstName": "Test",
+      "lastName": "User",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "TestPass123!",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["user"]
+    },
+    {
+      "username": "admin",
+      "email": "admin@morph-poc.com",
+      "firstName": "Admin",
+      "lastName": "User",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "AdminPass123!",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["user", "admin"]
+    }
+  ],
+  "clients": [
+    {
+      "clientId": "morph-device",
+      "name": "Morph Device Client",
+      "description": "Device-level auth via client_credentials. PoC uses client-secret; production uses private_key_jwt.",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "morph-device-secret",
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "publicClient": false,
+      "protocol": "openid-connect",
+      "attributes": {
+        "access.token.lifespan": "15"
+      }
+    },
+    {
+      "clientId": "morph-login",
+      "name": "Morph Login Client (2FA)",
+      "description": "User login via authorization_code. PoC defaults: 30s access, 60s client session idle (refresh window).",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "morph-login-secret",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false,
+      "publicClient": false,
+      "protocol": "openid-connect",
+      "fullScopeAllowed": true,
+      "redirectUris": [
+        "http://localhost:3000/callback/keycloak",
+        "http://localhost:3000/*",
+        "http://localhost:5173/",
+        "http://127.0.0.1:5173/",
+        "http://localhost:5173/oauth/callback",
+        "http://127.0.0.1:5173/oauth/callback",
+        "http://localhost:5173/auth/callback",
+        "http://127.0.0.1:5173/auth/callback",
+        "http://localhost:5173/*",
+        "http://127.0.0.1:5173/*"
+      ],
+      "webOrigins": [
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173"
+      ],
+      "attributes": {
+        "access.token.lifespan": "30",
+        "client.session.idle.timeout": "60",
+        "oauth2.token.exchange.grant.enabled": "true"
+      },
+      "protocolMappers": [
+        {
+          "name": "morph-session-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.client.audience": "morph-session",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "lightweight.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "morph-session",
+      "name": "Morph Session Client (1FA)",
+      "description": "Session token via 2FA→1FA token exchange. PoC defaults: 20s access, 60s client session idle (refresh window).",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "morph-session-secret",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "publicClient": false,
+      "protocol": "openid-connect",
+      "attributes": {
+        "access.token.lifespan": "20",
+        "client.session.idle.timeout": "60",
+        "oauth2.token.exchange.grant.enabled": "true"
+      }
+    },
+    {
+      "clientId": "morph-api",
+      "name": "Morph Mock API (Resource Server)",
+      "description": "Bearer-only client for the mock API to validate tokens.",
+      "enabled": true,
+      "bearerOnly": true,
+      "publicClient": false,
+      "protocol": "openid-connect"
+    }
+  ]
+}

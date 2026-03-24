@@ -1,0 +1,11 @@
+{
+  "name": "morph-api-client-repo",
+  "private": true,
+  "description": "Morph API Client — TS SDK (core) + PoC apps",
+  "scripts": {
+    "dev": "npm run dev --prefix poc/ts-vue -- --host 127.0.0.1",
+    "build:core": "npm run build --prefix core",
+    "build:vue": "npm run build --prefix poc/ts-vue",
+    "build": "npm run build:core && npm run build:vue"
+  }
+}
