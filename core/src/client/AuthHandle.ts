@@ -83,11 +83,12 @@ export class AuthHandle {
     return this.rt.tokens.loadTokens(r.authId, r.ref);
   }
 
-  /** Decoded access token JWT claims, or null when no token is stored. No network, no refresh. */
+  /** Decoded access token JWT claims, or null when no token / opaque token. No network, no refresh. */
   async getClaims(): Promise<JwtPayload | null> {
     const r = this.rt.parseAuthRef(this.authId);
     if (r.kind !== 'context') throw new Error('getClaims requires a provider/context auth id');
     this.rt.assertAlive();
+    if ((r.ref.context.tokenTypes.access?.format ?? 'jwt') === 'opaque') return null;
     const set = await this.rt.tokens.loadTokens(r.authId, r.ref);
     if (!set?.accessToken) return null;
     try { return decodeJwtPayload(set.accessToken); }

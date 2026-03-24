@@ -233,6 +233,7 @@ Defines the token types this context manages. Every context must define at least
 
 | Field | Type | Required | Description |
 |---|---|---|---|
+| `format` | `"jwt"` \| `"opaque"` | No | Token format. Default `"jwt"`. When `"opaque"`, the SDK skips JWT decode — `getClaims()` returns `null` and `getTokenStatus()` omits `claims`/`jwtExp`. Use `"opaque"` for providers like Google whose access tokens are not JWTs. |
 | `header` | `{ name, scheme }` | No | Custom token header. Default: `{ name: "Authorization", scheme: "Bearer" }`. |
 | `expiryPolicy` | `string` | Yes | How the SDK determines when the token expires: `"token"` (JWT `exp` claim), `"fixed"`, `"sliding"`. |
 | `maxTtl` | `Duration` | No | Maximum TTL cap (e.g., `"5m"`). If the JWT `exp` is further out, the SDK uses this instead. |

@@ -562,7 +562,7 @@ Unlike `hasValidToken()`, this **always** hits the IdP when preconditions are me
 
 ### auth.getClaims()
 
-Returns decoded JWT claims from the stored access token, or `null` if no token is stored or the token is not a valid JWT. No network, no refresh — reads from vault only.
+Returns decoded JWT claims from the stored access token, or `null` if no token is stored, the token format is `"opaque"`, or the token is not a valid JWT. No network, no refresh — reads from vault only. For providers like Google whose access tokens are opaque, set `tokenTypes.access.format: "opaque"` in config — `getClaims()` will return `null` without attempting decode.
 
 ```typescript
 const claims = await morph.auth('morph-auth/1fa').getClaims();

@@ -122,14 +122,16 @@ export class MorphRuntime {
         accessLikelyValid: hasAccessToken && (exp === undefined || exp > now),
         expiresAt: exp,
       };
-      if (set?.accessToken) {
+      const accessFormat = ref.context.tokenTypes.access?.format ?? 'jwt';
+      const refreshFormat = ref.context.tokenTypes.refresh?.format ?? 'jwt';
+      if (set?.accessToken && accessFormat === 'jwt') {
         try {
           const payload = decodeJwtPayload(set.accessToken);
           row.jwtExp = typeof payload.exp === 'number' ? payload.exp : undefined;
           row.claims = { ...payload } as Record<string, unknown>;
         } catch (e) { row.decodeError = e instanceof Error ? e.message : String(e); }
       }
-      if (set?.refreshToken && set.refreshToken.split('.').length >= 2) {
+      if (set?.refreshToken && refreshFormat === 'jwt' && set.refreshToken.split('.').length >= 2) {
         try {
           const rp = decodeJwtPayload(set.refreshToken);
           row.refreshJwtExp = typeof rp.exp === 'number' ? rp.exp : undefined;

@@ -26,6 +26,8 @@ export interface StorageConfig {
 }
 
 export interface TokenTypeConfig {
+  /** `'jwt'` (default) — SDK decodes claims. `'opaque'` — skip decode, claims will be `null`. */
+  format?: 'jwt' | 'opaque';
   header?: TokenHeaderConfig;
   expiryPolicy: string;
   maxTtl?: string;

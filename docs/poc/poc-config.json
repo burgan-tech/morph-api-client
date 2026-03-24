@@ -264,6 +264,7 @@
 
           "tokenTypes": {
             "access": {
+              "format": "opaque",
               "header": {
                 "name": "Authorization",
                 "scheme": "Bearer"
@@ -277,6 +278,7 @@
               }
             },
             "refresh": {
+              "format": "opaque",
               "expiryPolicy": "token",
               "storage": {
                 "scope": "session",
