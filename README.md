@@ -2,63 +2,75 @@
 
 Config-driven, multi-context HTTP client with built-in OAuth2 token lifecycle management.
 
-## Quick start (Vue PoC)
+## Quick start
 
 **Prerequisites:** Docker, Node.js 20+, python3, curl
 
-### 1. Keycloak + Mock API
+### First time setup
 
 ```bash
-# Start Keycloak (first run pulls image ~500MB)
-cd poc/keycloak && docker compose up -d
-
-# Wait for Keycloak & configure realm (takes ~30s on first run)
-bash setup.sh
-
-# Start mock API (separate terminal)
-cd poc/mock-api && npm install && node server.js
+make install        # install all npm dependencies
+make build          # build the core SDK
+cp poc/ts-vue/.env.example poc/ts-vue/.env   # create env with client secrets
+make up             # start Keycloak + setup + mock API + Vue dev server
 ```
 
-If you see "Realm 'morph' not found", the Docker volume has stale data:
+### Day-to-day
 
 ```bash
-docker compose down -v && docker compose up -d && bash setup.sh
+make up             # start full stack (Keycloak -> setup -> mock API -> Vue)
+make down           # stop everything
 ```
 
-### 2. SDK + Vue app
+Opens **http://127.0.0.1:5173/** (Vue PoC). Run `make help` to see all targets.
 
-```bash
-# From repository root
-cd core && npm install && npm run build
-cd ../poc/ts-vue && npm install
-cd ../..
-npm run dev
-```
+### Makefile targets
 
-Opens **http://127.0.0.1:5173/**. Rebuild the SDK after `core/` changes:
+| Target | Description |
+|--------|-------------|
+| `make install` | Install npm deps for core, Vue PoC, and mock API |
+| `make build` | Build the core SDK (run after `core/` changes) |
+| `make up` | Start full stack: Keycloak -> setup -> mock API -> Vue |
+| `make down` | Stop all services |
+| `make dev` | Start Vue dev server only (http://127.0.0.1:5173) |
+| `make mock-api` | Start mock API server only (http://localhost:3000) |
+| `make keycloak-up` | Start Keycloak container (port 8080) |
+| `make keycloak-down` | Stop Keycloak container |
+| `make keycloak-setup` | Run realm setup (clients, redirects, lifetimes, tests) |
+| `make keycloak-test` | Run OAuth2 flow smoke tests |
+| `make keycloak-logs` | Tail Keycloak logs |
+| `make keycloak-short-tokens` | Apply short token lifetimes (15s/30s/20s) |
+| `make keycloak-restore-tokens` | Restore long-lived token lifetimes |
+| `make clean` | Remove node_modules and dist |
 
-```bash
-npm run build:core
-```
+### Services
 
-### 3. Verify
+| Service | URL |
+|---------|-----|
+| Vue PoC | http://127.0.0.1:5173 |
+| Mock API | http://localhost:3000 |
+| Keycloak Admin | http://localhost:8080/admin (admin/admin) |
 
-```bash
-cd poc/keycloak && bash test-flows.sh
-```
+## Documentation
 
-All 5 tests should pass (device token, login, refresh rotation, token exchange, JWT decode).
+See **[docs/README.md](docs/README.md)** for the full documentation index.
 
-### Optional: Google OAuth
-
-See [docs/poc/google-setup.md](docs/poc/google-setup.md) for external IdP integration.
+| Document | Description |
+|----------|-------------|
+| [Overview](docs/overview.md) | System architecture, auth flow diagrams, Keycloak client mapping |
+| [PoC Guide](docs/poc-guide.md) | Step-by-step walkthrough of the Vue PoC app |
+| [Troubleshooting](docs/troubleshooting.md) | Common errors and fixes |
+| [Getting Started](docs/getting-started.md) | SDK installation and basic usage |
+| [Configuration](docs/configuration.md) | Full config field reference |
+| [API Reference](docs/api-reference.md) | Complete public API |
+| [Architecture](docs/architecture.md) | Internal design and module structure |
 
 ## Layout
 
 | Path | Role |
 |------|------|
 | `core/` | `morph-api-client` TypeScript SDK package |
-| `core/src/runtime.ts` | MorphRuntime — thin coordinator |
+| `core/src/runtime.ts` | MorphRuntime -- thin coordinator |
 | `core/src/tokens/` | TokenLifecycle + TokenVault |
 | `core/src/http/` | HostPipeline (host HTTP + 401 recovery) |
 | `core/src/client/` | MorphClient, HostClient, AuthHandle facades |

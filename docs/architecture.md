@@ -105,8 +105,8 @@ Auth contexts are grouped under **providers**. A provider represents a single au
 providers
 ├── morph-auth  (baseUrl: .../realms/morph)
 │   ├── device   (non-interactive, device-scoped)
-│   ├── 1fa      (interactive login, user-scoped)
-│   └── 2fa      (step-up via token exchange, session-scoped)
+│   ├── 2fa      (interactive login, session-scoped)
+│   └── 1fa      (session token via exchange from 2fa, user-scoped)
 │
 └── google-auth (baseUrl: accounts.google.com)
     └── google   (redirect, PKCE, session-scoped)
@@ -118,13 +118,13 @@ While contexts within a provider share the auth server, each context operates in
 
 - **device** — Machine-level credentials. Acquired non-interactively (client credentials). Stored persistently at device scope. Used for unauthenticated-user API calls (public content, pre-login flows).
 
-- **1fa** — First-factor user authentication. Acquired interactively (authorization code). Token is user-scoped and persisted. Represents a logged-in user session.
+- **2fa** — Interactive user login. Acquired via authorization code flow (browser redirect to Keycloak). Session-scoped in-memory tokens. Subject to session timeouts (background, inactivity).
 
-- **2fa** — Step-up authentication. Acquired via token exchange from the 1fa context. Subject to session timeouts (background, inactivity).
+- **1fa** — Long-lived session token. Acquired via token exchange from the 2fa context (`token.exchangeSource: "morph-auth/2fa"`). User-scoped persistent encrypted storage. Auto-exchanged during token resolution.
 
 - **google** — External OAuth2 provider. Full authorization code flow with PKCE. Session-scoped tokens.
 
-The SDK does not enforce a hierarchy between contexts — each operates independently. The progressive chain (device → 1fa → 2fa) is expressed through the host application's auth flow logic and the `delegateMetadata.grantHint` values.
+The SDK does not enforce a hierarchy between contexts — each operates independently. The progressive chain (device → 2fa login → 1fa via exchange) is expressed through the host application's auth flow logic and the `delegateMetadata.grantHint` values.
 
 ## Host Model
 
@@ -138,8 +138,7 @@ Hosts represent the API servers that the application calls. Each host has:
 ```
 hosts
 ├── main-api     (baseUrl: localhost:3000)
-│   ├── allowedAuth: [morph-auth/device, morph-auth/1fa, morph-auth/2fa]
-│   └── defaultAuth: morph-auth/2fa
+│   └── allowedAuth: [morph-auth/device, morph-auth/1fa, morph-auth/2fa, google-auth/google]
 │
 └── google-api   (baseUrl: googleapis.com)
     ├── allowedAuth: [google-auth/google]
@@ -214,9 +213,9 @@ Authentication UX varies wildly: biometric prompts, WebView redirects, OTP scree
 
 Different tokens have different security and lifecycle requirements:
 - Device tokens are long-lived and only need secure storage.
-- 1fa tokens are user-specific and need encryption at rest.
-- 2fa access tokens are ephemeral and can live in memory.
-- 2fa refresh tokens need persistent encrypted storage to survive app restarts.
+- 2fa tokens are session-scoped and can live in memory (ephemeral login session).
+- 1fa access and refresh tokens are user-scoped and need persistent encrypted storage to survive app restarts.
+- Google tokens are session-scoped and can live in memory.
 
 A single storage strategy cannot serve all of these correctly.
 

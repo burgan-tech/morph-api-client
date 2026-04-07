@@ -1,0 +1,28 @@
+# Documentation
+
+## Start here
+
+| Document | Description |
+|----------|-------------|
+| [Overview](overview.md) | System architecture, auth flow diagrams, Keycloak client mapping, token storage model |
+| [PoC Guide](poc-guide.md) | Step-by-step walkthrough of the Vue PoC app (sign-in, token exchange, simulation) |
+| [Troubleshooting](troubleshooting.md) | Common errors and how to fix them |
+
+## SDK Reference
+
+| Document | Description |
+|----------|-------------|
+| [Getting Started](getting-started.md) | SDK installation, initialization, making API calls, providing tokens |
+| [Configuration](configuration.md) | Full reference for every config field (providers, contexts, hosts, variables) |
+| [API Reference](api-reference.md) | Complete public API: MorphClient, HostClient, AuthHandle, types, errors |
+| [Token Lifecycle](token-lifecycle.md) | Token resolution algorithm, refresh, exchange, recovery, session monitoring |
+| [Platform Adapters](platform-adapters.md) | StorageProvider and NetworkDelegate interfaces |
+| [Architecture](architecture.md) | Internal design: module structure, HTTP pipeline, dependency graph |
+
+## PoC-Specific
+
+| Document | Description |
+|----------|-------------|
+| [poc/google-setup.md](poc/google-setup.md) | Google Cloud Console setup for the external IdP integration |
+| [poc/simulation.md](poc/simulation.md) | How the simulation panel works (`poc-simulation.json` schema) |
+| [poc/test-scenarios.md](poc/test-scenarios.md) | Nine test scenarios with curl recipes for all OAuth flows |
