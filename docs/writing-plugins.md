@@ -178,6 +178,34 @@ plugins: [
 
 Calls `ctx.provideStorage()` with a `StorageProvider` backed by browser storage.
 
+### `@morph/logger` -- Logger Plugin
+
+Structured logging with level filtering and HTTP trace output. A utility plugin -- it does not provide auth or storage.
+
+```typescript
+import { loggerPlugin } from '@morph/logger';
+
+plugins: [
+  loggerPlugin(),                              // defaults: level 'info', prefix '[morph] '
+  loggerPlugin({ level: 'debug' }),            // verbose: includes debug messages
+  loggerPlugin({ level: 'warn', prefix: '' }), // quiet: only warnings and errors
+  loggerPlugin({                                // custom: bring your own log function
+    onLog: (level, msg, err, ctx) => myLogger.log(level, msg, { err, ...ctx }),
+    onHttpTrace: (event) => myTracer.record(event),
+  }),
+]
+```
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `level` | `'info'` | Minimum log level: `'debug'`, `'info'`, `'warn'`, `'error'` |
+| `prefix` | `'[morph] '` | Prepended to each log line |
+| `onLog` | console output | Custom log handler (replaces default console output) |
+| `onHttpTrace` | console.log | Custom HTTP trace handler |
+| `httpTrace` | `true` | Enable/disable HTTP trace logging |
+
+The plugin wraps `MorphOptions.onLog` and `MorphOptions.onHttpTrace`, chaining with any existing handlers. Multiple logger plugins can be stacked (e.g., one for console + one for remote telemetry).
+
 ---
 
 ## Writing a Custom Storage Plugin
@@ -300,18 +328,21 @@ For more complex auth plugins, look at `@morph/oauth2`'s `TokenLifecycle` as a r
 
 ## Writing a Utility Plugin
 
-Not all plugins need to provide auth or storage. A plugin can hook into the system for logging, analytics, or other cross-cutting concerns by reading from the context.
+Not all plugins need to provide auth or storage. A utility plugin hooks into the system for logging, analytics, or other cross-cutting concerns by wrapping `MorphOptions` callbacks. The built-in `@morph/logger` is an example. Here's a custom analytics plugin:
 
 ```typescript
 import type { MorphPlugin } from '@morph/core';
 
-function requestLoggerPlugin(): MorphPlugin {
+function analyticsPlugin(endpoint: string): MorphPlugin {
   return {
-    name: 'request-logger',
+    name: 'analytics',
     install(ctx) {
       const original = ctx.options.onHttpTrace;
       ctx.options.onHttpTrace = (event) => {
-        console.log(`[${event.method}] ${event.url} -> ${event.statusCode} (${event.durationMs}ms)`);
+        fetch(endpoint, {
+          method: 'POST',
+          body: JSON.stringify({ method: event.method, path: event.path, status: event.statusCode, ms: event.durationMs }),
+        }).catch(() => {});
         original?.(event);
       };
     },
@@ -334,15 +365,17 @@ function requestLoggerPlugin(): MorphPlugin {
 
 ---
 
-## Full Example: Custom Encrypted Storage + OAuth2
+## Full Example: Custom Encrypted Storage + OAuth2 + Logger
 
 ```typescript
 import { MorphClient } from '@morph/core';
 import { oauth2Plugin } from '@morph/oauth2';
+import { loggerPlugin } from '@morph/logger';
 import config from './morph-config.json';
 
 const morph = MorphClient.init(config, {
   plugins: [
+    loggerPlugin({ level: 'debug' }),
     oauth2Plugin({
       storage: secureStoragePlugin('encryption-key-from-keychain'),
       variables: { deviceClientSecret: '...' },
@@ -352,7 +385,6 @@ const morph = MorphClient.init(config, {
         },
       },
     }),
-    requestLoggerPlugin(),
   ],
 });
 ```

@@ -12,6 +12,7 @@
     "@morph/core": "file:../../packages/core",
     "@morph/oauth2": "file:../../packages/oauth2",
     "@morph/browser-storage": "file:../../packages/browser-storage",
+    "@morph/logger": "file:../../packages/logger",
     "vue": "^3.5.30",
     "vue-router": "^4.5.0"
   },

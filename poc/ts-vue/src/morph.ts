@@ -6,6 +6,7 @@ import {
 } from '@morph/core';
 import { oauth2Plugin } from '@morph/oauth2';
 import { browserStoragePlugin } from '@morph/browser-storage';
+import { loggerPlugin } from '@morph/logger';
 import morphConfigJson from '../../../docs/poc/poc-config.json';
 import { pushHostHttpTrace } from './hostHttpTraceStore';
 
@@ -186,25 +187,19 @@ export function warnPocOAuthRedirectIfNonLoopback(): void {
   );
 }
 
-function morphLog(level: 'debug' | 'info' | 'warn' | 'error', message: string, err?: Error, ctx?: Record<string, unknown>) {
-  const line = `[morph:${level}] ${message}`;
-  const rest: [unknown, unknown] = [err ?? '', ctx ?? ''];
-  if (getSimulationConsoleVerbose()) {
-    if (level === 'error' || level === 'warn') console[level](line, ...rest);
-    else if (level === 'info') console.info(line, ...rest);
-    else console.log(line, ...rest);
-    return;
-  }
-  console[level === 'debug' ? 'debug' : level](line, ...rest);
-}
+const logger = loggerPlugin({
+  level: getSimulationConsoleVerbose() ? 'debug' : 'info',
+  prefix: '[morph] ',
+});
 
 const options: MorphOptions = {
   plugins: [
+    logger,
     oauth2Plugin({
-      storage: browserStoragePlugin(STORAGE_PREFIX),
+      logger,
+      storage: browserStoragePlugin({ prefix: STORAGE_PREFIX, logger }),
       variables: morphVariables,
       autoAcquireNonInteractive: true,
-      onLog: morphLog,
       callbacks: {
         onTokenChange(authId, tokens) {
           console.debug('[morph] onTokenChange', authId, !!tokens);
@@ -213,7 +208,6 @@ const options: MorphOptions = {
     }),
   ],
   variables: morphVariables,
-  onLog: morphLog,
   onHttpTrace: (e) => pushHostHttpTrace(e),
 };
 

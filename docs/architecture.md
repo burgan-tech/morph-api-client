@@ -172,10 +172,13 @@ morph-api-client/
 │   │       ├── oauth/               # tokenHttp (grant HTTP)
 │   │       ├── util/                # interpolate, expiry, exchangeSources
 │   │       └── index.ts             # oauth2Plugin() MorphPlugin factory
-│   └── browser-storage/             # @morph/browser-storage — browser storage adapters
+│   ├── browser-storage/             # @morph/browser-storage — browser storage adapters
+│   │   └── src/
+│   │       ├── browserStorage.ts    # createBrowserSessionStorage, createBrowserLocalStorage
+│   │       └── index.ts             # browserStoragePlugin() MorphPlugin factory
+│   └── logger/                      # @morph/logger — structured logging plugin
 │       └── src/
-│           ├── browserStorage.ts    # createBrowserSessionStorage, createBrowserLocalStorage
-│           └── index.ts             # browserStoragePlugin() MorphPlugin factory
+│           └── index.ts             # loggerPlugin() MorphPlugin factory
 ├── poc/
 │   ├── ts-vue/                      # Vue 3 PoC app
 │   ├── keycloak/                    # Docker Keycloak realm

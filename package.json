@@ -10,7 +10,8 @@
     "build:core": "npm run build --prefix packages/core",
     "build:oauth2": "npm run build --prefix packages/oauth2",
     "build:storage": "npm run build --prefix packages/browser-storage",
-    "build:packages": "npm run build:core && npm run build:oauth2 && npm run build:storage",
+    "build:logger": "npm run build --prefix packages/logger",
+    "build:packages": "npm run build:core && npm run build:oauth2 && npm run build:storage && npm run build:logger",
     "build:vue": "npm run build --prefix poc/ts-vue",
     "build": "npm run build:packages && npm run build:vue"
   }

@@ -15,13 +15,15 @@ install: ## Install all npm dependencies (packages + vue + mock-api)
 	cd packages/core            && npm install
 	cd packages/oauth2          && npm install
 	cd packages/browser-storage && npm install
+	cd packages/logger          && npm install
 	cd poc/ts-vue               && npm install
 	cd poc/mock-api             && npm install
 
-build: ## Build all SDK packages (core → oauth2 → browser-storage)
+build: ## Build all SDK packages (core → oauth2 → browser-storage → logger)
 	cd packages/core            && npm run build
 	cd packages/oauth2          && npm run build
 	cd packages/browser-storage && npm run build
+	cd packages/logger          && npm run build
 
 # ---------------------------------------------------------------------------
 # Dev servers
@@ -94,5 +96,6 @@ clean: ## Remove node_modules and dist artefacts
 	rm -rf packages/core/node_modules packages/core/dist
 	rm -rf packages/oauth2/node_modules packages/oauth2/dist
 	rm -rf packages/browser-storage/node_modules packages/browser-storage/dist
+	rm -rf packages/logger/node_modules packages/logger/dist
 	rm -rf poc/ts-vue/node_modules poc/ts-vue/dist
 	rm -rf poc/mock-api/node_modules

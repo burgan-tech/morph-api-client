@@ -231,10 +231,13 @@ morph-api-client/
 │   │       ├── tokens/         # TokenLifecycle (implements AuthPlugin), TokenVault
 │   │       ├── oauth/          # tokenHttp (grant HTTP)
 │   │       └── util/           # interpolate, expiry, exchangeSources
-│   └── browser-storage/        # @morph/browser-storage — browser storage adapters
+│   ├── browser-storage/        # @morph/browser-storage — browser storage adapters
+│   │   └── src/
+│   │       ├── browserStorage.ts
+│   │       └── index.ts        # browserStoragePlugin() factory
+│   └── logger/                 # @morph/logger — structured logging plugin
 │       └── src/
-│           ├── browserStorage.ts
-│           └── index.ts        # browserStoragePlugin() factory
+│           └── index.ts        # loggerPlugin() factory
 ├── poc/
 │   ├── ts-vue/                 # Vue 3 PoC app
 │   │   ├── src/views/          # HomeView, OAuthCallbackView
