@@ -13,6 +13,8 @@ cp poc/ts-vue/.env.example poc/ts-vue/.env   # create env with client secrets
 make up             # start Keycloak + setup + mock API + Vue dev server
 ```
 
+The Vue PoC initializes the SDK with two plugins: `browserStoragePlugin('morph-poc:tk:')` for token persistence and `oauth2Plugin()` for OAuth2 token lifecycle. The runtime auto-sorts them by dependency -- order in the `plugins` array doesn't matter. See `poc/ts-vue/src/morph.ts` for the full init code.
+
 After `make up` completes, three services are running:
 
 | Service | URL |

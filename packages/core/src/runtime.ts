@@ -22,7 +22,67 @@ import { stripOAuthReturnSearchParams } from './util/oauthReturn.js';
 import { encodeOAuthState, decodeOAuthState } from './util/oauthState.js';
 import { HostPipeline } from './http/hostPipeline.js';
 
+function topoSortPlugins(plugins: MorphPlugin[]): MorphPlugin[] {
+  if (plugins.length <= 1) return [...plugins];
+
+  const capToProvider = new Map<string, MorphPlugin>();
+  for (const p of plugins) {
+    for (const cap of p.provides ?? []) {
+      capToProvider.set(cap, p);
+    }
+  }
+
+  const adjOut = new Map<MorphPlugin, Set<MorphPlugin>>();
+  const inDeg = new Map<MorphPlugin, number>();
+  for (const p of plugins) {
+    adjOut.set(p, new Set());
+    inDeg.set(p, 0);
+  }
+
+  for (const p of plugins) {
+    for (const req of p.requires ?? []) {
+      const provider = capToProvider.get(req);
+      if (!provider) {
+        throw new Error(
+          `Plugin '${p.name}' requires '${req}' but no plugin provides it. ` +
+          `Add a plugin with provides: ['${req}'] or pass the dependency via plugin options.`,
+        );
+      }
+      if (provider === p) continue;
+      if (!adjOut.get(provider)!.has(p)) {
+        adjOut.get(provider)!.add(p);
+        inDeg.set(p, inDeg.get(p)! + 1);
+      }
+    }
+  }
+
+  const queue: MorphPlugin[] = [];
+  for (const p of plugins) {
+    if (inDeg.get(p)! === 0) queue.push(p);
+  }
+
+  const sorted: MorphPlugin[] = [];
+  while (queue.length > 0) {
+    const p = queue.shift()!;
+    sorted.push(p);
+    for (const dep of adjOut.get(p)!) {
+      const d = inDeg.get(dep)! - 1;
+      inDeg.set(dep, d);
+      if (d === 0) queue.push(dep);
+    }
+  }
+
+  if (sorted.length !== plugins.length) {
+    const unsorted = plugins.filter((p) => !sorted.includes(p)).map((p) => p.name);
+    throw new Error(`Circular plugin dependency detected among: ${unsorted.join(', ')}`);
+  }
+
+  return sorted;
+}
+
 function installPlugins(plugins: MorphPlugin[], resolved: ResolvedMorphConfig, options: MorphOptions, variables: Record<string, string>): { auth: AuthPlugin; storage: StorageProvider } {
+  const sorted = topoSortPlugins(plugins);
+
   let auth: AuthPlugin | undefined;
   let storage: StorageProvider | undefined;
 
@@ -42,7 +102,7 @@ function installPlugins(plugins: MorphPlugin[], resolved: ResolvedMorphConfig, o
     },
   };
 
-  for (const plugin of plugins) {
+  for (const plugin of sorted) {
     plugin.install(ctx);
   }
 

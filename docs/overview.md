@@ -32,11 +32,12 @@ graph TB
 
 **How it works:**
 
-1. The Vue app makes API calls through the SDK: `morph.host('main-api').get('/accounts')`
-2. The SDK resolves the appropriate token for the request (refresh if expired, exchange if needed)
-3. The SDK attaches the `Authorization: Bearer <token>` header and sends the request to the Mock API
-4. The Mock API validates the JWT against Keycloak's JWKS endpoint
-5. Tokens are stored in the browser's `sessionStorage` (prefixed `morph-poc:tk:`)
+1. The app initializes `MorphClient` with a `plugins` array. Plugins are topologically sorted by `provides`/`requires` and installed in dependency order. Auth (`@morph/oauth2`) and storage (`@morph/browser-storage`) are registered via plugins -- order in the array does not matter.
+2. The Vue app makes API calls through the SDK: `morph.host('main-api').get('/accounts')`
+3. The SDK resolves the appropriate token for the request (refresh if expired, exchange if needed)
+4. The SDK attaches the `Authorization: Bearer <token>` header and sends the request to the Mock API
+5. The Mock API validates the JWT against Keycloak's JWKS endpoint
+6. Tokens are stored in the browser's `sessionStorage` (prefixed `morph-poc:tk:`)
 
 ---
 
@@ -232,7 +233,8 @@ morph-api-client/
 │   │       └── util/           # interpolate, expiry, exchangeSources
 │   └── browser-storage/        # @morph/browser-storage — browser storage adapters
 │       └── src/
-│           └── browserStorage.ts
+│           ├── browserStorage.ts
+│           └── index.ts        # browserStoragePlugin() factory
 ├── poc/
 │   ├── ts-vue/                 # Vue 3 PoC app
 │   │   ├── src/views/          # HomeView, OAuthCallbackView

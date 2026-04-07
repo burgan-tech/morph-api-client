@@ -17,7 +17,7 @@
 | [Configuration](configuration.md) | Full reference for every config field (providers, contexts, hosts, variables) |
 | [API Reference](api-reference.md) | Complete public API: MorphClient, HostClient, AuthHandle, types, errors |
 | [Token Lifecycle](token-lifecycle.md) | Token resolution algorithm, refresh, exchange, recovery, session monitoring |
-| [Platform Adapters](platform-adapters.md) | StorageProvider and NetworkDelegate interfaces |
+| [Platform Adapters](platform-adapters.md) | StorageProvider (via plugins) and NetworkDelegate interfaces |
 | [Architecture](architecture.md) | Internal design: module structure, HTTP pipeline, dependency graph |
 
 ## PoC-Specific

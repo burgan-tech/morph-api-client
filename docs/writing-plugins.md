@@ -13,6 +13,8 @@ import type { MorphPlugin, MorphPluginContext } from '@morph/core';
 
 interface MorphPlugin {
   name: string;
+  provides?: string[];
+  requires?: string[];
   install(ctx: MorphPluginContext): void;
   dispose?(): void;
 }
@@ -21,6 +23,8 @@ interface MorphPlugin {
 | Field | Description |
 |-------|-------------|
 | `name` | Unique identifier for the plugin (convention: npm package name) |
+| `provides` | Capabilities this plugin registers (e.g. `['auth']`, `['storage']`). Used for dependency resolution. |
+| `requires` | Capabilities this plugin needs (e.g. `['storage']`). The runtime ensures providers are installed first. |
 | `install(ctx)` | Called once during `MorphClient.init()` with the resolved config and options |
 | `dispose()` | Optional. Called when `MorphClient.dispose()` is invoked. Use for cleanup (timers, listeners, etc.) |
 
@@ -57,31 +61,66 @@ sequenceDiagram
     participant App
     participant Client as MorphClient.init
     participant Runtime as MorphRuntime
-    participant P1 as Plugin 1
-    participant P2 as Plugin 2
+    participant Sort as Topological Sort
+    participant P1 as Storage Plugin
+    participant P2 as Auth Plugin
 
-    App->>Client: init(config, { plugins: [p1, p2], ... })
+    App->>Client: init(config, { plugins: [p2, p1], ... })
     Client->>Runtime: createRuntime(config, options)
     Runtime->>Runtime: validateAndIndexConfig(config)
-    loop For each plugin
-        Runtime->>P1: p1.install(ctx)
-        P1->>Runtime: ctx.provideStorage(storage)
-        Runtime->>P2: p2.install(ctx)
-        P2->>Runtime: ctx.provideAuth(auth)
-    end
+    Runtime->>Sort: topoSort(plugins)
+    Note over Sort: p2 requires 'storage', p1 provides 'storage'
+    Sort-->>Runtime: sorted: [p1, p2]
+    Runtime->>P1: p1.install(ctx)
+    P1->>Runtime: ctx.provideStorage(storage)
+    Runtime->>P2: p2.install(ctx)
+    P2->>Runtime: ctx.provideAuth(auth)
     Runtime->>Runtime: Verify auth + storage provided
     Runtime->>Runtime: Create HostPipeline with auth
     Note over App: MorphClient ready
 ```
 
-**Order matters.** Plugins are installed in array order. If the auth plugin needs storage during init (e.g., `@morph/oauth2` reads tokens from storage), the storage plugin must come first:
+**Order doesn't matter.** The runtime reads `provides` and `requires` from each plugin and topologically sorts them before installing. Providers are always installed before consumers:
 
 ```typescript
+// Both work identically -- the runtime sorts them:
+plugins: [oauth2Plugin(), browserStoragePlugin('myapp:tk:')]
+plugins: [browserStoragePlugin('myapp:tk:'), oauth2Plugin()]
+```
+
+### Dependency Resolution
+
+Each plugin declares what it **provides** and what it **requires**:
+
+```typescript
+// browserStoragePlugin provides 'storage', requires nothing
+{ name: '@morph/browser-storage', provides: ['storage'] }
+
+// oauth2Plugin provides 'auth', requires 'storage'
+{ name: '@morph/oauth2', provides: ['auth'], requires: ['storage'] }
+```
+
+The runtime builds a dependency graph and installs plugins in the correct order. Missing or circular dependencies produce clear errors:
+
+```
+Error: Plugin '@morph/oauth2' requires 'storage' but no plugin provides it.
+       Add a plugin with provides: ['storage'] or pass the dependency via plugin options.
+
+Error: Circular plugin dependency detected among: @morph/a, @morph/b
+```
+
+### Explicit Dependency Injection
+
+If a plugin accepts its dependencies as constructor options, it can skip the `requires` declaration entirely:
+
+```typescript
+// No storage plugin needed -- oauth2 gets storage directly
 plugins: [
-  browserStoragePlugin('myapp:tk:'),  // storage first
-  oauth2Plugin(),                      // auth second (uses storage)
+  oauth2Plugin({ storage: myCustomEncryptedStorage }),
 ]
 ```
+
+When `storage` is passed via options, `oauth2Plugin` sets `requires: []` so the topo sort doesn't look for a storage provider.
 
 ---
 
@@ -89,17 +128,31 @@ plugins: [
 
 ### `@morph/oauth2` -- Auth Plugin
 
-Provides OAuth2 token lifecycle management (refresh, exchange, client credentials, authorization code).
+Provides OAuth2 token lifecycle management (refresh, exchange, client credentials, authorization code). Accepts its own callbacks, variables, and configuration:
 
 ```typescript
 import { oauth2Plugin } from '@morph/oauth2';
 
 plugins: [
-  oauth2Plugin(),
+  oauth2Plugin({
+    callbacks: {
+      onAuthRequired: (authId, metadata) => { /* ... */ },
+      onLogout: (authId, reason) => { /* ... */ },
+      onTokenChange: (authId, tokens) => { /* ... */ },
+    },
+    variables: {
+      deviceClientSecret: 'secret',
+      loginClientSecret: 'secret',
+    },
+    autoAcquireNonInteractive: true,
+    storage: customStorage,          // optional explicit DI
+    onTokenExchange: async (grant) => null,
+    onClientJwtAssertion: async (authId) => null,
+  }),
 ]
 ```
 
-Calls `ctx.provideAuth()` with a `TokenLifecycle` instance that implements the `AuthPlugin` interface.
+Calls `ctx.provideAuth()` with a `TokenLifecycle` instance that implements the `AuthPlugin` interface. Plugin-specific options (`callbacks`, `variables`, `onTokenExchange`, etc.) are encapsulated inside the plugin -- they do not pollute `MorphOptions`.
 
 ### `@morph/browser-storage` -- Storage Plugin
 
@@ -170,6 +223,7 @@ function secureStoragePlugin(encryptionKey: string): MorphPlugin {
 
   return {
     name: 'secure-storage',
+    provides: ['storage'],
     install(ctx) {
       ctx.provideStorage(provider);
     },
@@ -223,6 +277,7 @@ function apiKeyPlugin(apiKey: string): MorphPlugin {
 
   return {
     name: 'api-key-auth',
+    provides: ['auth'],
     install(ctx) {
       ctx.provideAuth(auth);
     },
@@ -261,9 +316,12 @@ function requestLoggerPlugin(): MorphPlugin {
 
 - Exactly **one** plugin must call `ctx.provideAuth()`. Zero or more than one is an error.
 - Exactly **one** plugin must call `ctx.provideStorage()`. Zero or more than one is an error.
-- Plugins are installed **synchronously** in array order. `install()` is not async.
+- Plugins are **topologically sorted** by `provides` / `requires` before installation. Array order is a tiebreaker for plugins with no dependency relationship.
+- `install()` is synchronous (not async). Use constructor options for async initialization.
 - A plugin's `dispose()` is called when `MorphClient.dispose()` is invoked. Use for timer cleanup, event listener removal, etc.
 - Plugin names should be unique for debugging purposes but are not enforced at runtime.
+- Circular dependencies (A requires B, B requires A) are detected and throw an error at init time.
+- If a dependency is satisfied via plugin options (e.g. `oauth2Plugin({ storage })`), set `requires: []` so the topo sort doesn't look for a provider.
 
 ---
 

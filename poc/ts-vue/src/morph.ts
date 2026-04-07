@@ -186,35 +186,34 @@ export function warnPocOAuthRedirectIfNonLoopback(): void {
   );
 }
 
+function morphLog(level: 'debug' | 'info' | 'warn' | 'error', message: string, err?: Error, ctx?: Record<string, unknown>) {
+  const line = `[morph:${level}] ${message}`;
+  const rest: [unknown, unknown] = [err ?? '', ctx ?? ''];
+  if (getSimulationConsoleVerbose()) {
+    if (level === 'error' || level === 'warn') console[level](line, ...rest);
+    else if (level === 'info') console.info(line, ...rest);
+    else console.log(line, ...rest);
+    return;
+  }
+  console[level === 'debug' ? 'debug' : level](line, ...rest);
+}
+
 const options: MorphOptions = {
   plugins: [
-    browserStoragePlugin(STORAGE_PREFIX),
-    oauth2Plugin(),
+    oauth2Plugin({
+      storage: browserStoragePlugin(STORAGE_PREFIX),
+      variables: morphVariables,
+      autoAcquireNonInteractive: true,
+      onLog: morphLog,
+      callbacks: {
+        onTokenChange(authId, tokens) {
+          console.debug('[morph] onTokenChange', authId, !!tokens);
+        },
+      },
+    }),
   ],
   variables: morphVariables,
-  autoAcquireNonInteractive: true,
-  callbacks: {
-    onAuthRequired(authId, metadata) {
-      console.warn('[morph] onAuthRequired', authId, metadata);
-    },
-    onLogout(authId, reason) {
-      console.info('[morph] onLogout', authId, reason);
-    },
-    onTokenChange(authId, tokens) {
-      console.debug('[morph] onTokenChange', authId, !!tokens);
-    },
-  },
-  onLog(level, message, err, ctx) {
-    const line = `[morph:${level}] ${message}`;
-    const rest: [unknown, unknown] = [err ?? '', ctx ?? ''];
-    if (getSimulationConsoleVerbose()) {
-      if (level === 'error' || level === 'warn') console[level](line, ...rest);
-      else if (level === 'info') console.info(line, ...rest);
-      else console.log(line, ...rest);
-      return;
-    }
-    console[level === 'debug' ? 'debug' : level](line, ...rest);
-  },
+  onLog: morphLog,
   onHttpTrace: (e) => pushHostHttpTrace(e),
 };
 

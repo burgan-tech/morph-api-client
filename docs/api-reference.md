@@ -26,42 +26,48 @@ const morph = MorphClient.init(config, {
 
   plugins: [
     browserStoragePlugin('myapp:tk:'),
-    oauth2Plugin(),
+    oauth2Plugin({
+      callbacks: {
+        onAuthRequired: (authId, metadata) => {
+          if (metadata.interaction === 'non-interactive') {
+            morph.auth(authId).acquireWithClientCredentials();
+          } else if (metadata.interaction === 'interactive') {
+            router.navigate('/login', { authId, workflow: metadata.workflow });
+          } else if (metadata.interaction === 'redirect') {
+            window.location.href = `/auth/redirect?authId=${authId}`;
+          }
+        },
+        onLogout: (authId, reason) => {
+          console.log(`[${authId}] logged out: ${reason}`);
+          if (authId === 'burgan-auth/1fa') router.navigate('/login');
+        },
+        onTokenChange: (authId, tokens) => {
+          if (authId === 'burgan-auth/1fa') setIsLoggedIn(!!tokens);
+          if (authId === 'burgan-auth/2fa') setCanTransfer(!!tokens);
+        },
+      },
+      variables: {
+        deviceClientId: 'abc-123',
+        '1faClientId': 'def-456',
+        googleClientId: '789.apps.googleusercontent.com',
+        deviceId: getDeviceId(),
+        installationId: getInstallationId(),
+      },
+      autoAcquireNonInteractive: true,
+      onTokenExchange: async (grant) => {
+        if (grant.type === 'token_exchange' && grant.authId === 'burgan-auth/2fa') {
+          const res = await fetch('/api/custom-step-up', {
+            headers: { 'Authorization': `Bearer ${grant.sourceToken}` },
+            method: 'POST',
+          });
+          return await res.json();
+        }
+        return null;
+      },
+    }),
   ],
 
-  callbacks: {
-    onAuthRequired: (authId, metadata) => {
-      // authId format: 'provider/context', e.g. 'burgan-auth/device'
-      if (metadata.interaction === 'non-interactive') {
-        morph.auth(authId).acquireWithClientCredentials();
-
-      } else if (metadata.interaction === 'interactive') {
-        router.navigate('/login', { authId, workflow: metadata.workflow });
-        // ... later, after redirect returns a code:
-        morph.auth(authId).submitCode(code);
-        await morph.auth('burgan-auth/1fa').exchangeToken('burgan-auth/2fa');
-
-      } else if (metadata.interaction === 'redirect') {
-        window.location.href = `/auth/redirect?authId=${authId}`;
-        // ... later, after redirect returns a code:
-        // morph.auth(authId).submitCode(code, { codeVerifier });
-      }
-    },
-
-    onLogout: (authId, reason) => {
-      console.log(`[${authId}] logged out: ${reason}`);
-      if (authId === 'burgan-auth/1fa') {
-        router.navigate('/login');
-      }
-    },
-
-    onTokenChange: (authId, tokens) => {
-      if (authId === 'burgan-auth/1fa') setIsLoggedIn(!!tokens);
-      if (authId === 'burgan-auth/2fa') setCanTransfer(!!tokens);
-    },
-  },
-
-  // --- Functional delegates (SDK needs the result) ---
+  // --- Core-level options (shared across all plugins) ---
 
   networkDelegate: {
     async getNetworkConfig(hostname) {
@@ -69,42 +75,11 @@ const morph = MorphClient.init(config, {
         'api.burgan.com.tr':     ['sha256/AAAA...', 'sha256/BBBB...'],
         'payment.burgan.com.tr': ['sha256/CCCC...', 'sha256/DDDD...'],
       };
-
-      // mTLS client cert from platform keychain (only for hosts that require it)
-      const mtlsCert = ['api.burgan.com.tr', 'payment.burgan.com.tr'].includes(hostname)
-        ? { cert: await keychain.getCert(), key: await keychain.getKey() }
-        : undefined;
-
       return {
         certificatePins: PINS[hostname] ?? undefined,
-        clientCertificate: mtlsCert,
         proxy: __DEV__ ? { url: 'http://localhost:8888' } : undefined,
       };
     },
-  },
-
-  // --- Data ---
-
-  variables: {
-    deviceClientId: 'abc-123',
-    '1faClientId': 'def-456',
-    googleClientId: '789.apps.googleusercontent.com',
-    deviceId: getDeviceId(),
-    installationId: getInstallationId(),
-    appVersion: '2.4.1',
-  },
-
-  // --- Functional delegates (continued) ---
-
-  onTokenExchange: async (grant) => {
-    if (grant.type === 'token_exchange' && grant.authId === 'burgan-auth/2fa') {
-      const res = await fetch('/api/custom-step-up', {
-        headers: { 'Authorization': `Bearer ${grant.sourceToken}` },
-        method: 'POST',
-      });
-      return await res.json(); // { accessToken, refreshToken }
-    }
-    return null; // standard OAuth2 exchange
   },
 
   onSignPayload: async (payload, authId) => {
@@ -123,7 +98,11 @@ const morph = MorphClient.init(config, {
 
 Throws `ConfigValidationError` if the config is invalid.
 
-Include **`deviceId`** and **`installationId`** in `variables` when the JSON config interpolates them (e.g. `X-Device-Id`, `X-Installation-Id`). On mobile, `installationId` is usually a GUID created on first install after download; the Vue web PoC simulates that with browser-local and session-scoped ids (see `poc/ts-vue/README.md`).
+**What goes where:**
+- **Plugin options** (`oauth2Plugin({ ... })`): `callbacks`, `variables` (auth-specific like client secrets), `onTokenExchange`, `onClientJwtAssertion`, `autoAcquireNonInteractive`
+- **Core options** (`MorphOptions`): `onLog`, `onHttpTrace`, `onSignPayload`, `onDecryptResponse`, `networkDelegate`, shared `variables` (like `deviceId`)
+
+Include **`deviceId`** and **`installationId`** in `variables` when the JSON config interpolates them (e.g. `X-Device-Id`, `X-Installation-Id`). On mobile, `installationId` is usually a GUID created on first install after download; the Vue web PoC simulates that with browser-local and session-scoped ids.
 
 ---
 
@@ -671,36 +650,32 @@ interface MorphOptions {
   plugins: MorphPlugin[];
   variables?: Record<string, string>;
 
-  // Notifications (void callbacks — inform the host app)
-  callbacks: MorphCallbacks;
-
-  // Functional delegates (return values — SDK needs the result)
+  // Core-level delegates (shared, not plugin-specific)
   networkDelegate?: NetworkDelegate;
-  onTokenExchange?: (grant: TokenExchangeGrant) => Promise<TokenSet | null>;
   onSignPayload?: (payload: string, authId: string) => Promise<string>;
   onDecryptResponse?: (encryptedBody: string, authId: string) => Promise<string>;
   onLog?: (level: 'debug' | 'info' | 'warn' | 'error', message: string, error?: Error, context?: Record<string, unknown>) => void;
   onHttpTrace?: (event: MorphHttpTraceEvent) => void;
-  onClientJwtAssertion?: (authId: string) => Promise<string | null>;
-  autoAcquireNonInteractive?: boolean;
 }
 ```
 
 **Plugins:**
-- `plugins` — Array of `MorphPlugin` instances. Each plugin calls `ctx.provideAuth()` and/or `ctx.provideStorage()` during init. Exactly one auth plugin and one storage plugin are required. See [Writing Plugins](writing-plugins.md).
-- `variables` — Variable map for `$variable` interpolation in config.
+- `plugins` — Array of `MorphPlugin` instances. Plugins declare `provides` and `requires` for automatic dependency resolution (topological sort). The combined set must include exactly one plugin that calls `ctx.provideAuth()` and one that calls `ctx.provideStorage()`. Order does not matter. See [Writing Plugins](writing-plugins.md).
+- `variables` — Shared variable map for `$variable` interpolation in config (host headers, etc.). Plugin-specific variables (client secrets) should be passed to the plugin directly.
 
-**Notifications (callbacks):**
-- `callbacks` — Auth lifecycle notifications: `onAuthRequired`, `onLogout`, `onTokenChange`. All `void` — inform the host app, don't return values.
+**Core delegates (shared across all plugins):**
+- `networkDelegate` -- SSL pins, mTLS cert, proxy per hostname. Lazy, per first request.
+- `onSignPayload` -- JWS signing. Called when `sign: true`. Returns signature string.
+- `onDecryptResponse` -- Response decryption. Called when `encrypted: true`. Returns decrypted plaintext.
+- `onLog` -- Log delegate. Shared with plugins that don't provide their own.
+- `onHttpTrace` -- Structured host HTTP trace. Fired once per `fetch()`.
 
-**Functional delegates (SDK needs the result):**
-- `networkDelegate` — SSL pins, mTLS cert, proxy per hostname. Lazy, per first request.
-- `onTokenExchange` — Custom token exchange logic. Return `TokenSet` to override, `null` to let SDK handle it.
-- `onSignPayload` — JWS signing. Called when `sign: true`. Returns signature string → SDK attaches as `X-JWS-Signature`. Throws if missing when `sign: true`.
-- `onDecryptResponse` — Response decryption. Called when `encrypted: true`. Returns decrypted plaintext → SDK parses as JSON. Throws if missing when `encrypted: true`.
-- `onLog` — Log delegate. Omit for silence. The SDK emits **`info`** for successful refresh, client_credentials renewal, token exchange, authorization_code storage, and 401-driven refresh (context includes `authId`). Failures use **`warn`** / **`error`**.
-- `onHttpTrace` — Structured **host HTTP** trace (method, URL, path, `authId`, request/response headers, parsed response body, duration). Fired once per underlying `fetch()` (so a 401 followed by refresh + retry produces **two** events). `Authorization` in `requestHeaders` is redacted (`Bearer <redacted>`). Distinct from `onLog` (human-oriented strings). Omit if you do not need request/response introspection.
-- `onClientJwtAssertion` — Called when `clientAuth` is `private_key_jwt`. Returns a signed JWT client assertion for the token endpoint. When omitted and `clientSecret` is present, the SDK falls back to `client_secret_post`.
+**Moved to `oauth2Plugin()` options:**
+- `callbacks` (`onAuthRequired`, `onLogout`, `onTokenChange`) -- auth lifecycle notifications
+- `onTokenExchange` -- custom token exchange logic
+- `onClientJwtAssertion` -- signed JWT assertion for `private_key_jwt` client auth
+- `autoAcquireNonInteractive` -- auto-acquire device tokens
+- `variables` (plugin-specific: client secrets, redirect URIs)
 
 ---
 
@@ -1116,21 +1091,39 @@ try {
 Ready-made `StorageProvider` implementations for web apps, available as a plugin or standalone factory.
 
 ```typescript
+import { MorphClient } from '@morph/core';
+import { oauth2Plugin } from '@morph/oauth2';
 import { browserStoragePlugin } from '@morph/browser-storage';
 
-// As a plugin (recommended)
+// As a plugin (recommended) — order does not matter
 MorphClient.init(config, {
   plugins: [
     browserStoragePlugin('myapp:tk:'),           // sessionStorage (default)
-    browserStoragePlugin('myapp:tk:', 'local'),   // or localStorage
     oauth2Plugin(),
   ],
+  // ...
 });
 
-// As standalone factories (for custom plugins or direct use)
+// localStorage variant
+MorphClient.init(config, {
+  plugins: [
+    browserStoragePlugin('myapp:tk:', 'local'),
+    oauth2Plugin(),
+  ],
+  // ...
+});
+```
+
+Standalone factories are also available for custom plugins or direct dependency injection:
+
+```typescript
 import { createBrowserSessionStorage, createBrowserLocalStorage } from '@morph/browser-storage';
-const storage = createBrowserSessionStorage('myapp:tk:');
-const storage = createBrowserLocalStorage('myapp:tk:');
+
+const sessionStore = createBrowserSessionStorage('myapp:tk:');
+const localStore = createBrowserLocalStorage('myapp:tk:');
+
+// Pass directly to oauth2Plugin via explicit DI
+plugins: [oauth2Plugin({ storage: sessionStore })]
 ```
 
 ### OAuth State Helpers

@@ -1,6 +1,6 @@
 import { parseDurationMs } from '../util/duration.js';
 import { resolveEndpoint } from '../util/url.js';
-import type { AuthContextConfig, MorphOptions, NetworkPolicy, ProviderConfig } from '@morph/core';
+import type { AuthContextConfig, NetworkPolicy, ProviderConfig } from '@morph/core';
 import { TokenEndpointError } from '@morph/core';
 import { interpolateRecord, interpolateString } from '../util/interpolate.js';
 
@@ -27,7 +27,7 @@ export async function postTokenRequest(
   body: Record<string, string>,
   headers: Record<string, string>,
   policy: NetworkPolicy | undefined,
-  log?: MorphOptions['onLog'],
+  log?: (level: 'debug' | 'info' | 'warn' | 'error', message: string, error?: Error, context?: Record<string, unknown>) => void,
 ): Promise<OAuthTokenResponse> {
   const timeoutMs = parseDurationMs(policy?.timeout, 30_000);
   const retries = policy?.retry?.count ?? 0;
@@ -93,7 +93,7 @@ export async function buildClientAuthFields(
   authId: string,
   ctx: AuthContextConfig,
   variables: Record<string, string>,
-  options: Pick<MorphOptions, 'onClientJwtAssertion'>,
+  options: { onClientJwtAssertion?: (authId: string) => Promise<string | null> },
 ): Promise<Record<string, string>> {
   const clientId = ctx.clientId ? interpolateString(ctx.clientId, variables, { key: ctx.key }) : '';
   const out: Record<string, string> = { client_id: clientId };

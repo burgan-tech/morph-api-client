@@ -1,6 +1,6 @@
 # Platform Adapters
 
-The SDK defines two interfaces that the host application can implement to bridge platform-specific capabilities: **StorageProvider** (required) and **NetworkDelegate** (optional). Logging is handled via the `onLog` callback on `MorphOptions`.
+The SDK defines two interfaces that the host application provides via plugins: **StorageProvider** (required, registered by a storage plugin like `browserStoragePlugin()`) and **NetworkDelegate** (optional, passed directly in `MorphOptions`). Logging is handled via the `onLog` callback on `MorphOptions`. See [Writing Plugins](writing-plugins.md) for how to create custom storage plugins.
 
 > **Dart/Flutter parity is planned.** This document currently covers TypeScript. The Dart SDK will expose the same interfaces with language-appropriate idioms.
 
@@ -8,7 +8,7 @@ The SDK defines two interfaces that the host application can implement to bridge
 
 ## StorageProvider
 
-The storage provider is responsible for persisting and retrieving token data. A single `StorageProvider` instance is passed at init time. The SDK passes the full `StorageConfig` from the config JSON to every call, so the delegate has all the context it needs to make storage decisions.
+The storage provider is responsible for persisting and retrieving token data. A `StorageProvider` is registered by a storage plugin (via `ctx.provideStorage()`) during `MorphClient.init()`. The SDK passes the full `StorageConfig` from the config JSON to every call, so the delegate has all the context it needs to make storage decisions.
 
 ### Interface
 
@@ -72,6 +72,8 @@ The storage provider stores and returns this string as-is. Deserialization is ha
 For web applications, the `@morph/browser-storage` package provides a ready-made plugin:
 
 ```typescript
+import { MorphClient } from '@morph/core';
+import { oauth2Plugin } from '@morph/oauth2';
 import { browserStoragePlugin } from '@morph/browser-storage';
 
 MorphClient.init(config, {
@@ -137,12 +139,14 @@ const storage: StorageProvider = {
 For development and testing, write a simple in-memory storage plugin:
 
 ```typescript
-import type { MorphPlugin } from '@morph/core';
+import { MorphClient, type MorphPlugin } from '@morph/core';
+import { oauth2Plugin } from '@morph/oauth2';
 
 function memoryStoragePlugin(): MorphPlugin {
   const store = new Map<string, string>();
   return {
     name: 'memory-storage',
+    provides: ['storage'],
     install(ctx) {
       ctx.provideStorage({
         read: async (key) => store.get(key) ?? null,

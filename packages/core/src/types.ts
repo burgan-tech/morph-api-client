@@ -278,6 +278,10 @@ export interface MorphPluginContext {
 
 export interface MorphPlugin {
   name: string;
+  /** Capabilities this plugin registers (e.g. `['auth']`, `['storage']`). Used for topological sort. */
+  provides?: string[];
+  /** Capabilities this plugin needs from other plugins (e.g. `['storage']`). The runtime installs providers first. */
+  requires?: string[];
   install(ctx: MorphPluginContext): void;
   dispose?(): void;
 }
@@ -285,9 +289,7 @@ export interface MorphPlugin {
 export interface MorphOptions {
   plugins: MorphPlugin[];
   variables?: Record<string, string>;
-  callbacks: MorphCallbacks;
   networkDelegate?: NetworkDelegate;
-  onTokenExchange?: (grant: TokenExchangeGrant) => Promise<TokenSet | null>;
   onSignPayload?: (payload: string, authId: string) => Promise<string>;
   onDecryptResponse?: (encryptedBody: string, authId: string) => Promise<string>;
   onLog?: (
@@ -297,8 +299,6 @@ export interface MorphOptions {
     context?: Record<string, unknown>,
   ) => void;
   onHttpTrace?: (event: MorphHttpTraceEvent) => void;
-  onClientJwtAssertion?: (authId: string) => Promise<string | null>;
-  autoAcquireNonInteractive?: boolean;
 
   /** @internal Resolved by plugin system during init. Do not set directly. */
   _resolvedAuth?: AuthPlugin;

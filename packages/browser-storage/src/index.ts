@@ -4,6 +4,7 @@ import { createBrowserSessionStorage, createBrowserLocalStorage } from './browse
 export function browserStoragePlugin(prefix = 'morph:tk:', type: 'session' | 'local' = 'session'): MorphPlugin {
   return {
     name: '@morph/browser-storage',
+    provides: ['storage'],
     install(ctx) {
       const storage = type === 'local'
         ? createBrowserLocalStorage(prefix)

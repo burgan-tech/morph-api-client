@@ -48,7 +48,7 @@ Morph API Client is initialized with a JSON configuration **object** containing 
 }
 ```
 
-The configuration is validated during `MorphClient.init()`. Invalid configurations produce descriptive errors at initialization time, not at request time.
+The configuration is validated during `MorphClient.init()`. Invalid configurations produce descriptive errors at initialization time, not at request time. In addition to the JSON config, `MorphClient.init()` requires a `plugins` array with at least an auth plugin and a storage plugin. See [Getting Started](getting-started.md) for initialization and [Writing Plugins](writing-plugins.md) for custom plugins.
 
 ---
 

@@ -3,7 +3,7 @@ import type {
   AuthPlugin,
   CtxRef,
   LogoutReason,
-  MorphOptions,
+  MorphCallbacks,
   ProviderConfig,
   StorageProvider,
   TokenExchangeGrant,
@@ -11,6 +11,15 @@ import type {
 } from '@morph/core';
 import type { ResolvedMorphConfig } from '@morph/core';
 import { AuthError, UnknownContextError } from '@morph/core';
+
+export interface OAuth2TokenOptions {
+  callbacks: MorphCallbacks;
+  variables: Record<string, string>;
+  onTokenExchange?: (grant: TokenExchangeGrant) => Promise<TokenSet | null>;
+  onClientJwtAssertion?: (authId: string) => Promise<string | null>;
+  autoAcquireNonInteractive?: boolean;
+  onLog?: (level: 'debug' | 'info' | 'warn' | 'error', message: string, error?: Error, context?: Record<string, unknown>) => void;
+}
 import { TokenVault } from './tokenVault.js';
 import {
   buildClientAuthFields,
@@ -35,14 +44,12 @@ export class TokenLifecycle implements AuthPlugin {
 
   constructor(
     private readonly resolved: ResolvedMorphConfig,
-    private readonly options: MorphOptions,
+    private readonly opts: OAuth2TokenOptions,
     private readonly variables: Record<string, string>,
-    private readonly log: MorphOptions['onLog'],
-    storage?: StorageProvider,
+    private readonly log: OAuth2TokenOptions['onLog'],
+    storage: StorageProvider,
   ) {
-    const s = storage ?? options._resolvedStorage;
-    if (!s) throw new Error('OAuth2 plugin requires a storage provider. Add a storage plugin before the auth plugin.');
-    this.vault = new TokenVault(variables, s);
+    this.vault = new TokenVault(variables, storage);
   }
 
   dispose(): void {
@@ -82,7 +89,7 @@ export class TokenLifecycle implements AuthPlugin {
   private async persistAndNotify(authId: string, ref: CtxRef, set: TokenSet | null): Promise<void> {
     if (set) await this.vault.save(authId, ref.provider, ref.context, set);
     else await this.vault.clear(authId, ref.provider, ref.context);
-    this.options.callbacks.onTokenChange?.(authId, set);
+    this.opts.callbacks.onTokenChange?.(authId, set);
   }
 
   async loadTokens(authId: string, ref: CtxRef): Promise<TokenSet | null> {
@@ -102,7 +109,7 @@ export class TokenLifecycle implements AuthPlugin {
     const { provider, context: ctx } = ref;
     const useEx = grantType === TOKEN_EXCHANGE_GRANT && !!ctx.token.exchangeEndpoint;
     const url = tokenUrl(this.providerTokenHttpBase(provider), ctx, useEx, this.variables);
-    const clientFields = await buildClientAuthFields(authId, ctx, this.variables, this.options);
+    const clientFields = await buildClientAuthFields(authId, ctx, this.variables, this.opts);
     const headers = mergeHeaders(provider, ctx, this.variables);
     const body: Record<string, string> = { ...clientFields, grant_type: grantType, ...extraFields };
     if (grantType !== 'authorization_code' && ctx.audience) {
@@ -110,7 +117,7 @@ export class TokenLifecycle implements AuthPlugin {
     }
     if (ctx.scopes?.length) body.scope = ctx.scopes.join(' ');
 
-    const custom = await this.options.onTokenExchange?.(grantInfo);
+    const custom = await this.opts.onTokenExchange?.(grantInfo);
     if (custom) return custom;
 
     const r = await postTokenRequest(url, body, headers, this.policyFor(provider, ctx), this.log);
@@ -195,7 +202,7 @@ export class TokenLifecycle implements AuthPlugin {
   async clearTokens(authId: string, ref: CtxRef): Promise<void> {
     await this.withLock(authId, async () => {
       await this.vault.clear(authId, ref.provider, ref.context);
-      this.options.callbacks.onTokenChange?.(authId, null);
+      this.opts.callbacks.onTokenChange?.(authId, null);
     });
   }
 
@@ -205,7 +212,7 @@ export class TokenLifecycle implements AuthPlugin {
     if (ctx.logout?.endpoint) {
       try {
         const url = resolveEndpoint(this.providerTokenHttpBase(provider), ctx.logout.endpoint);
-        const clientFields = await buildClientAuthFields(authId, ctx, this.variables, this.options);
+        const clientFields = await buildClientAuthFields(authId, ctx, this.variables, this.opts);
         const headers = mergeHeaders(provider, ctx, this.variables);
         const body: Record<string, string> = { ...clientFields };
         if (set?.refreshToken) body.refresh_token = set.refreshToken;
@@ -215,7 +222,7 @@ export class TokenLifecycle implements AuthPlugin {
       }
     }
     await this.clearTokens(authId, ref);
-    this.options.callbacks.onLogout(authId, reason);
+    this.opts.callbacks.onLogout(authId, reason);
   }
 
   async logoutProvider(providerKey: string, reason: LogoutReason): Promise<void> {
@@ -245,11 +252,11 @@ export class TokenLifecycle implements AuthPlugin {
   fireAuthRequired(authId: string, ctx: AuthContextConfig): void {
     const meta = ctx.delegateMetadata;
     if (!meta) {
-      this.options.callbacks.onAuthRequired(authId, { workflow: 'unknown', grantHint: 'unknown', interaction: 'interactive' });
+      this.opts.callbacks.onAuthRequired(authId, { workflow: 'unknown', grantHint: 'unknown', interaction: 'interactive' });
       return;
     }
-    this.options.callbacks.onAuthRequired(authId, meta);
-    if (this.options.autoAcquireNonInteractive && meta.interaction === 'non-interactive') {
+    this.opts.callbacks.onAuthRequired(authId, meta);
+    if (this.opts.autoAcquireNonInteractive && meta.interaction === 'non-interactive') {
       const ref = this.resolved.contextByAuthId.get(authId);
       if (ref) {
         this.acquireWithClientCredentials(authId, ref).catch((e) => {
@@ -262,7 +269,7 @@ export class TokenLifecycle implements AuthPlugin {
   private emitRefreshFailCallbacks(ref: CtxRef, authId: string, mode: 'probe' | 'http'): void {
     if (mode !== 'http') return;
     if (ref.context.recoveryPolicy?.onRefreshFail === 'delegate') this.fireAuthRequired(authId, ref.context);
-    this.options.callbacks.onLogout?.(authId, 'refresh_failed');
+    this.opts.callbacks.onLogout?.(authId, 'refresh_failed');
   }
 
   // ── 401 recovery (called by HostPipeline) ─────────────────────────────
@@ -277,7 +284,7 @@ export class TokenLifecycle implements AuthPlugin {
           this.doLog('info', 'Access token refreshed after 401', undefined, { authId });
         } catch {
           await this.vault.clear(authId, ref.provider, ref.context);
-          this.options.callbacks.onTokenChange?.(authId, null);
+          this.opts.callbacks.onTokenChange?.(authId, null);
           this.emitRefreshFailCallbacks(ref, authId, 'http');
         }
       } else {
@@ -315,7 +322,7 @@ export class TokenLifecycle implements AuthPlugin {
         } catch (e) {
           this.doLog('warn', 'Refresh failed', e instanceof Error ? e : undefined, { authId });
           await this.vault.clear(authId, ref.provider, ref.context);
-          this.options.callbacks.onTokenChange?.(authId, null);
+          this.opts.callbacks.onTokenChange?.(authId, null);
           set = null;
           deferredRefreshFail = hasExchangeSources(ref.context.token);
           if (!deferredRefreshFail) {
@@ -393,7 +400,7 @@ export class TokenLifecycle implements AuthPlugin {
             } catch { /* try next source */ }
           }
           await this.vault.clear(authId, ref.provider, ref.context);
-          this.options.callbacks.onTokenChange?.(authId, null);
+          this.opts.callbacks.onTokenChange?.(authId, null);
           this.emitRefreshFailCallbacks(ref, authId, 'http');
           throw e;
         }

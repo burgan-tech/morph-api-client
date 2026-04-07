@@ -56,18 +56,22 @@ The SDK is not a standalone token manager that hands tokens to a separate HTTP c
         │              └───────┬──────────┘
         │                      │
 ┌───────▼──────────────────────▼───────────────────────┐
-│              Platform Abstractions                     │
-│   StorageProvider · NetworkDelegate                    │
-│   (injected at init, platform-specific impls)          │
+│              Plugin System + Platform Abstractions      │
+│   MorphPlugin[] → topoSort → install                   │
+│   StorageProvider (via plugin) · NetworkDelegate        │
 └──────────────────────────────────────────────────────┘
 ```
 
+### Plugin System
+
+At init time, `MorphClient.init()` topologically sorts the `plugins[]` array using each plugin's `provides` and `requires` declarations, then calls `install(ctx)` on each in dependency order. Plugins register capabilities via `ctx.provideAuth()` and `ctx.provideStorage()`. This decouples the core from any specific auth or storage implementation.
+
 ### Module Responsibilities
 
-- **MorphRuntime** — Thin coordinator. Owns config queries (`getHost`, `parseAuthRef`, `getTokenStatus`, `getProviderMeta`), OAuth flow orchestration (`getAuthorizationUrl`, `completeOAuthCallback`, `completeOAuthReturn`), and delegates token/HTTP work to sub-modules.
-- **TokenLifecycle** — All token operations: consolidated `executeGrant` helper (replaces 4 separate grant functions), lock management, refresh, client credentials, token exchange, `resolveAccessToken` (the core resolution algorithm), and `handle401Recovery` (for the host pipeline's 401 path).
-- **HostPipeline** — Host HTTP requests: URL resolution, header merging, `fetchWithTrace` (timeout + abort + trace), 401 recovery delegation, response parsing, and sign/decrypt delegate calls.
-- **TokenVault** — Storage I/O: key interpolation, serialization, and delegation to the injected `StorageProvider`.
+- **MorphRuntime** — Thin coordinator. Installs plugins (topo sort + install loop), owns config queries (`getHost`, `parseAuthRef`, `getTokenStatus`, `getProviderMeta`), OAuth flow orchestration (`getAuthorizationUrl`, `completeOAuthCallback`, `completeOAuthReturn`), and delegates token/HTTP work to sub-modules.
+- **TokenLifecycle** (`@morph/oauth2`) — All token operations: consolidated `executeGrant` helper, lock management, refresh, client credentials, token exchange, `resolveAccessToken` (the core resolution algorithm), and `handle401Recovery` (for the host pipeline's 401 path). Implements the `AuthPlugin` interface.
+- **HostPipeline** — Host HTTP requests: URL resolution, header merging, `fetchWithTrace` (timeout + abort + trace), 401 recovery delegation, response parsing, and sign/decrypt delegate calls. Depends on `AuthPlugin` interface (not `TokenLifecycle` directly).
+- **TokenVault** (`@morph/oauth2`) — Storage I/O: key interpolation, serialization, and delegation to the `StorageProvider` registered by the storage plugin.
 
 ### Dependency Graph
 
@@ -171,7 +175,7 @@ morph-api-client/
 │   └── browser-storage/             # @morph/browser-storage — browser storage adapters
 │       └── src/
 │           ├── browserStorage.ts    # createBrowserSessionStorage, createBrowserLocalStorage
-│           └── index.ts
+│           └── index.ts             # browserStoragePlugin() MorphPlugin factory
 ├── poc/
 │   ├── ts-vue/                      # Vue 3 PoC app
 │   ├── keycloak/                    # Docker Keycloak realm

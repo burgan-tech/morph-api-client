@@ -94,7 +94,7 @@ Storage keys support runtime variables that are resolved when reading or writing
 
 ## Token Storage
 
-Tokens are stored using the `StorageProvider` interface injected at init time. The SDK passes the full `StorageConfig` from the JSON config to every call, so the delegate has all the context it needs.
+Tokens are stored using the `StorageProvider` interface registered by a storage plugin (e.g. `browserStoragePlugin()`) during initialization. The SDK passes the full `StorageConfig` from the JSON config to every call, so the delegate has all the context it needs. See [Writing Plugins](writing-plugins.md) for how storage plugins work.
 
 ### Storage Flow
 

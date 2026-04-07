@@ -84,6 +84,8 @@ See [Configuration Reference](configuration.md) for a full field reference.
 
 ## Initialization
 
+Plugins provide auth and storage capabilities. The runtime topologically sorts them by `provides` / `requires`, so order in the array does not matter. You can also inject dependencies directly: `oauth2Plugin({ storage: myCustomStorage })`.
+
 ```typescript
 import { MorphClient } from '@morph/core';
 import { oauth2Plugin } from '@morph/oauth2';
@@ -93,35 +95,37 @@ import config from './morph-config.json';
 const morph = MorphClient.init(config, {
   plugins: [
     browserStoragePlugin('myapp:tk:'),
-    oauth2Plugin(),
+    oauth2Plugin({
+      callbacks: {
+        onAuthRequired: (authId, metadata) => {
+          if (metadata.interaction === 'non-interactive') {
+            morph.auth(authId).acquireWithClientCredentials();
+          } else if (metadata.interaction === 'interactive') {
+            router.navigate('/login', { authId });
+          }
+        },
+        onLogout: (authId, reason) => {
+          console.log(`Logged out of ${authId}: ${reason}`);
+          if (authId === 'my-auth/user') {
+            router.navigate('/login');
+          }
+        },
+      },
+      variables: {
+        deviceClientId: 'device-client-abc',
+        deviceClientSecret: 'device-secret-xyz',
+        userClientId: 'user-client-def',
+        userClientSecret: 'user-secret-uvw',
+        oauthRedirectUri: `${window.location.origin}/oauth/callback`,
+        deviceId: getDeviceId(),
+      },
+      autoAcquireNonInteractive: true,
+    }),
   ],
-
-  callbacks: {
-    onAuthRequired: (authId, metadata) => {
-      if (metadata.interaction === 'non-interactive') {
-        morph.auth(authId).acquireWithClientCredentials();
-      } else if (metadata.interaction === 'interactive') {
-        router.navigate('/login', { authId });
-      }
-    },
-    onLogout: (authId, reason) => {
-      console.log(`Logged out of ${authId}: ${reason}`);
-      if (authId === 'my-auth/user') {
-        router.navigate('/login');
-      }
-    },
-  },
-
-  variables: {
-    deviceClientId: 'device-client-abc',
-    deviceClientSecret: 'device-secret-xyz',
-    userClientId: 'user-client-def',
-    userClientSecret: 'user-secret-uvw',
-    oauthRedirectUri: `${window.location.origin}/oauth/callback`,
-    deviceId: getDeviceId(),
-  },
 });
 ```
+
+Each plugin receives its own configuration. The core `MorphOptions` only holds shared concerns (`onLog`, `onHttpTrace`, `onSignPayload`, `onDecryptResponse`). Plugin-specific callbacks and variables are passed directly to the plugin factory.
 
 ---
 

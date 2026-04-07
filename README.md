@@ -10,7 +10,7 @@ Config-driven, multi-context HTTP client with built-in OAuth2 token lifecycle ma
 
 ```bash
 make install        # install all npm dependencies
-make build          # build the core SDK
+make build          # build all SDK packages
 cp poc/ts-vue/.env.example poc/ts-vue/.env   # create env with client secrets
 make up             # start Keycloak + setup + mock API + Vue dev server
 ```
