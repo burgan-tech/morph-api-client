@@ -1,8 +1,8 @@
 import { parseDurationMs } from '../util/duration.js';
 import { resolveEndpoint } from '../util/url.js';
-import type { AuthContextConfig, MorphOptions, NetworkPolicy, ProviderConfig } from '../types.js';
-import { interpolateRecord, interpolateString } from '../config/interpolate.js';
-import { TokenEndpointError } from '../errors.js';
+import type { AuthContextConfig, MorphOptions, NetworkPolicy, ProviderConfig } from '@morph/core';
+import { TokenEndpointError } from '@morph/core';
+import { interpolateRecord, interpolateString } from '../util/interpolate.js';
 
 export interface OAuthTokenResponse {
   access_token: string;

@@ -246,7 +246,30 @@ export interface TokenExchangeGrant {
   refreshToken?: string;
 }
 
+export type CtxRef = { provider: ProviderConfig; context: AuthContextConfig };
+
+export interface AuthPlugin {
+  resolveAccessToken(authId: string, ref: CtxRef, mode: 'probe' | 'http'): Promise<string>;
+  handle401Recovery(authId: string, ref: CtxRef): Promise<void>;
+  fireAuthRequired(authId: string, ctx: AuthContextConfig): void;
+  submitCode(authId: string, ref: CtxRef, code: string, opts?: { codeVerifier?: string; redirectUriOverride?: string }): Promise<void>;
+  acquireWithClientCredentials(authId: string, ref: CtxRef): Promise<void>;
+  exchangeToken(sourceAuthId: string, sourceRef: CtxRef, targetAuthId: string): Promise<void>;
+  setTokens(authId: string, ref: CtxRef, tokens: TokenSet): Promise<void>;
+  clearTokens(authId: string, ref: CtxRef): Promise<void>;
+  loadTokens(authId: string, ref: CtxRef): Promise<TokenSet | null>;
+  logout(authId: string, ref: CtxRef, reason: LogoutReason): Promise<void>;
+  logoutProvider(providerKey: string, reason: LogoutReason): Promise<void>;
+  hasValidTokenContext(authId: string, ref: CtxRef): Promise<boolean>;
+  hasValidTokenProvider(providerKey: string): Promise<boolean>;
+  refreshTokensManual(authId: string, ref: CtxRef): Promise<void>;
+  dispose(): void;
+}
+
+export type AuthPluginFactory = (resolved: { config: MorphConfig; contextByAuthId: Map<string, CtxRef>; contextsByProvider: Map<string, AuthContextConfig[]>; hostByKey: Map<string, HostConfig> }, options: MorphOptions, variables: Record<string, string>) => AuthPlugin;
+
 export interface MorphOptions {
+  auth: AuthPlugin | AuthPluginFactory;
   storage: StorageProvider;
   variables?: Record<string, string>;
   callbacks: MorphCallbacks;

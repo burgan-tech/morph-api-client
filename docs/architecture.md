@@ -151,24 +151,32 @@ The `allowedAuth` list enables **request-time validation**: if a request through
 
 ```
 morph-api-client/
-├── core/                            # morph-api-client npm package
-│   └── src/
-│       ├── client/                  # MorphClient, HostClient, AuthHandle (facades)
-│       ├── config/                  # validate (CtxRef, hostByKey), interpolate ($variable)
-│       ├── tokens/                  # TokenLifecycle, TokenVault
-│       ├── http/                    # HostPipeline
-│       ├── oauth/                   # tokenHttp (grant HTTP), oauthAuthorize (URL builder)
-│       ├── util/                    # jwt, expiry, url, oauthState, oauthReturn, httpTrace
-│       ├── storage/                 # createBrowserSessionStorage, createBrowserLocalStorage
-│       ├── runtime.ts              # MorphRuntime coordinator
-│       ├── types.ts                # Public interfaces
-│       ├── errors.ts               # Error classes
-│       └── index.ts                # Public exports
+├── packages/
+│   ├── core/                        # @morph/core — types, config, HTTP pipeline, client facades
+│   │   └── src/
+│   │       ├── client/              # MorphClient, HostClient, AuthHandle
+│   │       ├── config/              # validate (CtxRef, hostByKey), interpolate ($variable)
+│   │       ├── http/                # HostPipeline (depends on AuthPlugin interface)
+│   │       ├── util/                # jwt, expiry, url, duration, httpTrace, oauthState
+│   │       ├── runtime.ts           # MorphRuntime coordinator
+│   │       ├── types.ts             # Public interfaces (AuthPlugin, StorageProvider, …)
+│   │       ├── errors.ts            # Error classes
+│   │       └── index.ts             # Public exports
+│   ├── oauth2/                      # @morph/oauth2 — OAuth2 token lifecycle plugin
+│   │   └── src/
+│   │       ├── tokens/              # TokenLifecycle (implements AuthPlugin), TokenVault
+│   │       ├── oauth/               # tokenHttp (grant HTTP)
+│   │       ├── util/                # interpolate, expiry, exchangeSources
+│   │       └── index.ts             # createOAuth2Plugin, oauth2Plugin factory
+│   └── browser-storage/             # @morph/browser-storage — browser storage adapters
+│       └── src/
+│           ├── browserStorage.ts    # createBrowserSessionStorage, createBrowserLocalStorage
+│           └── index.ts
 ├── poc/
-│   ├── ts-vue/                     # Vue 3 PoC app
-│   ├── keycloak/                   # Docker Keycloak realm
-│   └── mock-api/                   # Mock REST API
-└── docs/                           # Design & API documentation
+│   ├── ts-vue/                      # Vue 3 PoC app
+│   ├── keycloak/                    # Docker Keycloak realm
+│   └── mock-api/                    # Mock REST API
+└── docs/                            # Design & API documentation
 ```
 
 ## Transport Security

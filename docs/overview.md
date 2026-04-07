@@ -215,18 +215,24 @@ Copy `poc/ts-vue/.env.example` to `poc/ts-vue/.env` to get started. The three cl
 
 ```
 morph-api-client/
-├── core/                       # SDK npm package (morph-api-client)
-│   └── src/
-│       ├── client/             # MorphClient, HostClient, AuthHandle
-│       ├── config/             # Config validation, variable interpolation
-│       ├── tokens/             # TokenLifecycle, TokenVault
-│       ├── http/               # HostPipeline (requests + 401 recovery)
-│       ├── oauth/              # Token HTTP, authorization URL builder
-│       ├── util/               # JWT, expiry, URL helpers
-│       ├── storage/            # Browser storage factories
-│       ├── runtime.ts          # MorphRuntime coordinator
-│       ├── types.ts            # Public type definitions
-│       └── errors.ts           # Error classes
+├── packages/
+│   ├── core/                   # @morph/core — types, config, HTTP pipeline, client facades
+│   │   └── src/
+│   │       ├── client/         # MorphClient, HostClient, AuthHandle
+│   │       ├── config/         # Config validation, variable interpolation
+│   │       ├── http/           # HostPipeline (depends on AuthPlugin interface)
+│   │       ├── util/           # JWT, expiry, URL, duration, httpTrace
+│   │       ├── runtime.ts      # MorphRuntime coordinator
+│   │       ├── types.ts        # AuthPlugin, StorageProvider, all shared types
+│   │       └── errors.ts       # Error classes
+│   ├── oauth2/                 # @morph/oauth2 — OAuth2 token lifecycle plugin
+│   │   └── src/
+│   │       ├── tokens/         # TokenLifecycle (implements AuthPlugin), TokenVault
+│   │       ├── oauth/          # tokenHttp (grant HTTP)
+│   │       └── util/           # interpolate, expiry, exchangeSources
+│   └── browser-storage/        # @morph/browser-storage — browser storage adapters
+│       └── src/
+│           └── browserStorage.ts
 ├── poc/
 │   ├── ts-vue/                 # Vue 3 PoC app
 │   │   ├── src/views/          # HomeView, OAuthCallbackView

@@ -1,14 +1,15 @@
 import type {
   AuthContextConfig,
+  AuthPlugin,
+  CtxRef,
   LogoutReason,
   MorphOptions,
   ProviderConfig,
   TokenExchangeGrant,
   TokenSet,
-} from '../types.js';
-import type { ResolvedMorphConfig, CtxRef } from '../config/validate.js';
-import { listAuthIdsForProvider } from '../config/validate.js';
-import { interpolateString } from '../config/interpolate.js';
+} from '@morph/core';
+import type { ResolvedMorphConfig } from '@morph/core';
+import { AuthError, UnknownContextError } from '@morph/core';
 import { TokenVault } from './tokenVault.js';
 import {
   buildClientAuthFields,
@@ -19,13 +20,14 @@ import {
 import { computeExpiresAt, isExpired } from '../util/expiry.js';
 import { parseDurationMs } from '../util/duration.js';
 import { resolveEndpoint } from '../util/url.js';
-import { AuthError, UnknownContextError } from '../errors.js';
 import { hasExchangeSources, normalizeExchangeSources } from '../util/exchangeSources.js';
+import { interpolateString } from '../util/interpolate.js';
+import { listAuthIdsForProvider } from '../util/listAuthIds.js';
 
 const TOKEN_EXCHANGE_GRANT = 'urn:ietf:params:oauth:grant-type:token-exchange';
 const ACCESS_TOKEN_TYPE = 'urn:ietf:params:oauth:token-type:access_token';
 
-export class TokenLifecycle {
+export class TokenLifecycle implements AuthPlugin {
   readonly vault: TokenVault;
   private readonly locks = new Map<string, Promise<unknown>>();
   private readonly inflightSubmitCode = new Map<string, Promise<void>>();

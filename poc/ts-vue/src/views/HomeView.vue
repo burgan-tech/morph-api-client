@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, reactive, watch, onMounted, computed } from 'vue';
-import type { MorphTokenStatus } from 'morph-api-client';
+import type { MorphTokenStatus } from '@morph/core';
 import JsonTreeView from '../components/JsonTreeView.vue';
 import PocSimulationPanel from '../components/PocSimulationPanel.vue';
 import { morph, getWebSimDeviceIdentity, pocGetAuthorizationUrl, syncOAuthRedirectUrisFromBrowser } from '../morph';

@@ -5,7 +5,7 @@
 ## Installation
 
 ```bash
-npm install morph-api-client
+npm install @morph/core @morph/oauth2 @morph/browser-storage
 ```
 
 ---
@@ -85,10 +85,13 @@ See [Configuration Reference](configuration.md) for a full field reference.
 ## Initialization
 
 ```typescript
-import { MorphClient, createBrowserSessionStorage } from 'morph-api-client';
+import { MorphClient } from '@morph/core';
+import { oauth2Plugin } from '@morph/oauth2';
+import { createBrowserSessionStorage } from '@morph/browser-storage';
 import config from './morph-config.json';
 
 const morph = MorphClient.init(config, {
+  auth: oauth2Plugin,
   storage: createBrowserSessionStorage('myapp:tk:'),
 
   callbacks: {

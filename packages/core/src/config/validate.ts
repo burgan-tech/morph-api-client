@@ -1,8 +1,8 @@
-import type { AuthContextConfig, HostConfig, MorphConfig, ProviderConfig } from '../types.js';
+import type { AuthContextConfig, CtxRef, HostConfig, MorphConfig, ProviderConfig } from '../types.js';
 import { ConfigValidationError } from '../errors.js';
 import { normalizeExchangeSources } from '../util/exchangeSources.js';
 
-export type CtxRef = { provider: ProviderConfig; context: AuthContextConfig };
+export type { CtxRef } from '../types.js';
 
 export interface ResolvedMorphConfig {
   config: MorphConfig;

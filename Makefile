@@ -11,13 +11,17 @@ help: ## Show available targets
 # Dependencies & build
 # ---------------------------------------------------------------------------
 
-install: ## Install all npm dependencies (core + vue + mock-api)
-	cd core          && npm install
-	cd poc/ts-vue    && npm install
-	cd poc/mock-api  && npm install
+install: ## Install all npm dependencies (packages + vue + mock-api)
+	cd packages/core            && npm install
+	cd packages/oauth2          && npm install
+	cd packages/browser-storage && npm install
+	cd poc/ts-vue               && npm install
+	cd poc/mock-api             && npm install
 
-build: ## Build the core SDK (run after core/ changes)
-	cd core && npm run build
+build: ## Build all SDK packages (core → oauth2 → browser-storage)
+	cd packages/core            && npm run build
+	cd packages/oauth2          && npm run build
+	cd packages/browser-storage && npm run build
 
 # ---------------------------------------------------------------------------
 # Dev servers
@@ -87,6 +91,8 @@ stop: down ## Alias for 'down'
 # ---------------------------------------------------------------------------
 
 clean: ## Remove node_modules and dist artefacts
-	rm -rf core/node_modules core/dist
+	rm -rf packages/core/node_modules packages/core/dist
+	rm -rf packages/oauth2/node_modules packages/oauth2/dist
+	rm -rf packages/browser-storage/node_modules packages/browser-storage/dist
 	rm -rf poc/ts-vue/node_modules poc/ts-vue/dist
 	rm -rf poc/mock-api/node_modules

@@ -8,7 +8,7 @@ Step-by-step walkthrough of the Vue PoC application. This guide assumes you have
 
 ```bash
 make install        # install all npm dependencies
-make build          # build the core SDK
+make build          # build all SDK packages (core, oauth2, browser-storage)
 cp poc/ts-vue/.env.example poc/ts-vue/.env   # create env with client secrets
 make up             # start Keycloak + setup + mock API + Vue dev server
 ```

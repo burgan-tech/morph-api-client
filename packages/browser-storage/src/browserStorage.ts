@@ -1,4 +1,4 @@
-import type { StorageProvider } from '../types.js';
+import type { StorageProvider } from '@morph/core';
 
 function createBrowserStorageAdapter(store: Storage, prefix: string): StorageProvider {
   return {

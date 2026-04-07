@@ -1,10 +1,10 @@
 import type {
+  AuthPlugin,
   HostConfig,
   MorphOptions,
   MorphResponse,
 } from '../types.js';
 import type { ResolvedMorphConfig } from '../config/validate.js';
-import type { TokenLifecycle } from '../tokens/tokenLifecycle.js';
 import { interpolateRecord } from '../config/interpolate.js';
 import { resolveEndpoint } from '../util/url.js';
 import { parseDurationMs } from '../util/duration.js';
@@ -25,7 +25,7 @@ export class HostPipeline {
     private readonly resolved: ResolvedMorphConfig,
     private readonly options: MorphOptions,
     private readonly variables: Record<string, string>,
-    private readonly tokens: TokenLifecycle,
+    private readonly tokens: AuthPlugin,
   ) {}
 
   // ── Public ────────────────────────────────────────────────────────────

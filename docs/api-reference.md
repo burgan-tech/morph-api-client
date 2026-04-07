@@ -17,7 +17,7 @@ The main entry point. Created via the static `init` factory.
 Creates and configures the SDK. Validates the config, initializes all providers, auth contexts, hosts, refresh schedulers, and session monitors.
 
 ```typescript
-import { MorphClient } from 'morph-api-client';
+import { MorphClient } from '@morph/core';
 import config from './morph-config.json';
 
 const tokenStore = new Map<string, string>();
@@ -1030,7 +1030,7 @@ const networkDelegate: NetworkDelegate = {
 Builds the query string for an OAuth 2.0 **authorize** redirect (`client_id`, `redirect_uri`, `response_type`, `scope`, `state`, plus any `extraParams`). Combine with `authorization.endpoint` from config: if `endpoint` is an **absolute** URL, it is used as-is (so authorize still hits the real IdP when `provider.baseUrl` is rewritten for dev token proxying). Optional fields on `AuthContextConfig.authorization`: `responseType`, `extraParams`.
 
 ```typescript
-import { buildOAuth2AuthorizationUrl } from 'morph-api-client';
+import { buildOAuth2AuthorizationUrl } from '@morph/core';
 ```
 
 ---
@@ -1103,7 +1103,7 @@ if (res instanceof AuthError) {
 Thrown when a token endpoint (refresh, client_credentials, authorization_code exchange, token exchange) returns a non-2xx HTTP response.
 
 ```typescript
-import { TokenEndpointError } from 'morph-api-client';
+import { TokenEndpointError } from '@morph/core';
 
 try {
   await morph.auth('morph-auth/1fa').submitCode(code);
@@ -1124,7 +1124,7 @@ try {
 Ready-made `StorageProvider` implementations for web apps.
 
 ```typescript
-import { createBrowserSessionStorage, createBrowserLocalStorage } from 'morph-api-client';
+import { createBrowserSessionStorage, createBrowserLocalStorage } from '@morph/browser-storage';
 
 // sessionStorage — tokens survive SPA reload but not new tabs
 const storage = createBrowserSessionStorage('myapp:tk:');
@@ -1138,7 +1138,7 @@ const storage = createBrowserLocalStorage('myapp:tk:');
 Encode/decode `authId` in the OAuth `state` parameter. Used internally by `getAuthorizationUrl` and `completeOAuthCallback`. Exposed for custom flows.
 
 ```typescript
-import { encodeOAuthState, decodeOAuthState } from 'morph-api-client';
+import { encodeOAuthState, decodeOAuthState } from '@morph/core';
 
 const state = encodeOAuthState('morph-auth/2fa'); // 'morph1.eyJhIjo...'
 const decoded = decodeOAuthState(state);          // { authId: 'morph-auth/2fa' }
@@ -1150,7 +1150,7 @@ decodeOAuthState('random-opaque-state');           // null
 Strips OAuth return query params (`code`, `state`, `session_state`, `iss`, `scope`, `error`, `error_description`) from the current browser URL via `history.replaceState`. No-op outside browser.
 
 ```typescript
-import { cleanOAuthReturnFromBrowser } from 'morph-api-client';
+import { cleanOAuthReturnFromBrowser } from '@morph/core';
 cleanOAuthReturnFromBrowser();
 ```
 
@@ -1159,7 +1159,7 @@ cleanOAuthReturnFromBrowser();
 Normalizes IPv6 loopback origins to `http://localhost:PORT` for consistent `redirect_uri` matching.
 
 ```typescript
-import { normalizeLoopbackOrigin } from 'morph-api-client';
+import { normalizeLoopbackOrigin } from '@morph/core';
 normalizeLoopbackOrigin('http://[::1]:5173'); // 'http://localhost:5173'
 normalizeLoopbackOrigin('http://localhost:5173'); // unchanged
 ```

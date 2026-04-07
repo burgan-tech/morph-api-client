@@ -1,11 +1,17 @@
 {
   "name": "morph-api-client-repo",
   "private": true,
-  "description": "Morph API Client — TS SDK (core) + PoC apps",
+  "description": "Morph API Client — TS SDK packages + PoC apps",
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
     "dev": "npm run dev --prefix poc/ts-vue -- --host 127.0.0.1",
-    "build:core": "npm run build --prefix core",
+    "build:core": "npm run build --prefix packages/core",
+    "build:oauth2": "npm run build --prefix packages/oauth2",
+    "build:storage": "npm run build --prefix packages/browser-storage",
+    "build:packages": "npm run build:core && npm run build:oauth2 && npm run build:storage",
     "build:vue": "npm run build --prefix poc/ts-vue",
-    "build": "npm run build:core && npm run build:vue"
+    "build": "npm run build:packages && npm run build:vue"
   }
 }

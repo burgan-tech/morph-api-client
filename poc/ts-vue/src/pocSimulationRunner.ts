@@ -1,4 +1,4 @@
-import { AuthError, MorphHttpError, type MorphClient } from 'morph-api-client';
+import { AuthError, MorphHttpError, type MorphClient } from '@morph/core';
 import type {
   PocSimulationConfig,
   PocSimFetchStep,

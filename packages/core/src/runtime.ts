@@ -1,4 +1,6 @@
 import type {
+  AuthPlugin,
+  AuthPluginFactory,
   HostConfig,
   MorphConfig,
   MorphContextMeta,
@@ -16,11 +18,15 @@ import { decodeJwtPayload } from './util/jwt.js';
 import { normalizeExchangeSources } from './util/exchangeSources.js';
 import { stripOAuthReturnSearchParams } from './util/oauthReturn.js';
 import { encodeOAuthState, decodeOAuthState } from './util/oauthState.js';
-import { TokenLifecycle } from './tokens/tokenLifecycle.js';
 import { HostPipeline } from './http/hostPipeline.js';
 
+function resolveAuthPlugin(auth: AuthPlugin | AuthPluginFactory, resolved: ResolvedMorphConfig, options: MorphOptions, variables: Record<string, string>): AuthPlugin {
+  if (typeof auth === 'function') return auth(resolved, options, variables);
+  return auth;
+}
+
 export class MorphRuntime {
-  readonly tokens: TokenLifecycle;
+  readonly tokens: AuthPlugin;
   readonly http: HostPipeline;
   private disposed = false;
 
@@ -29,7 +35,7 @@ export class MorphRuntime {
     readonly options: MorphOptions,
     private readonly variables: Record<string, string>,
   ) {
-    this.tokens = new TokenLifecycle(resolved, options, variables, options.onLog);
+    this.tokens = resolveAuthPlugin(options.auth, resolved, options, variables);
     this.http = new HostPipeline(resolved, options, variables, this.tokens);
   }
 

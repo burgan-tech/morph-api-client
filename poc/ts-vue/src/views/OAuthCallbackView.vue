@@ -2,7 +2,7 @@
 import { onMounted, ref } from 'vue';
 import { RouterLink, useRoute, useRouter } from 'vue-router';
 import { morph, syncOAuthRedirectUrisFromBrowser } from '../morph';
-import { cleanOAuthReturnFromBrowser } from 'morph-api-client';
+import { cleanOAuthReturnFromBrowser } from '@morph/core';
 
 const route = useRoute();
 const router = useRouter();

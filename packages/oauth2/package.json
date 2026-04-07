@@ -1,7 +1,7 @@
 {
-  "name": "morph-api-client",
+  "name": "@morph/oauth2",
   "version": "0.1.0",
-  "description": "Morph API Client SDK (TypeScript)",
+  "description": "Morph OAuth2 plugin — token lifecycle, vault, and OAuth helpers",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -19,6 +19,9 @@
   "scripts": {
     "build": "vite build",
     "dev": "vite build --watch"
+  },
+  "dependencies": {
+    "@morph/core": "^0.1.0"
   },
   "devDependencies": {
     "typescript": "^5.4.5",

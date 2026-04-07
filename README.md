@@ -28,8 +28,8 @@ Opens **http://127.0.0.1:5173/** (Vue PoC). Run `make help` to see all targets.
 
 | Target | Description |
 |--------|-------------|
-| `make install` | Install npm deps for core, Vue PoC, and mock API |
-| `make build` | Build the core SDK (run after `core/` changes) |
+| `make install` | Install npm deps for all packages, Vue PoC, and mock API |
+| `make build` | Build all SDK packages (core -> oauth2 -> browser-storage) |
 | `make up` | Start full stack: Keycloak -> setup -> mock API -> Vue |
 | `make down` | Stop all services |
 | `make dev` | Start Vue dev server only (http://127.0.0.1:5173) |
@@ -67,14 +67,12 @@ See **[docs/README.md](docs/README.md)** for the full documentation index.
 
 ## Layout
 
-| Path | Role |
-|------|------|
-| `core/` | `morph-api-client` TypeScript SDK package |
-| `core/src/runtime.ts` | MorphRuntime -- thin coordinator |
-| `core/src/tokens/` | TokenLifecycle + TokenVault |
-| `core/src/http/` | HostPipeline (host HTTP + 401 recovery) |
-| `core/src/client/` | MorphClient, HostClient, AuthHandle facades |
-| `poc/ts-vue/` | Vue 3 demo app |
-| `poc/keycloak/` | Docker Keycloak realm + setup/test scripts |
-| `poc/mock-api/` | Mock REST API (Express, validates JWT via Keycloak/Google) |
-| `docs/` | Design & API docs |
+| Path | Package | Role |
+|------|---------|------|
+| `packages/core/` | `@morph/core` | Types, config, HTTP pipeline, MorphClient, AuthHandle |
+| `packages/oauth2/` | `@morph/oauth2` | TokenLifecycle, TokenVault, OAuth helpers |
+| `packages/browser-storage/` | `@morph/browser-storage` | sessionStorage / localStorage adapters |
+| `poc/ts-vue/` | | Vue 3 demo app |
+| `poc/keycloak/` | | Docker Keycloak realm + setup/test scripts |
+| `poc/mock-api/` | | Mock REST API (Express, validates JWT) |
+| `docs/` | | Design & API docs |

@@ -13,11 +13,14 @@ export default defineConfig({
   build: {
     lib: {
       entry: resolve(__dirname, 'src/index.ts'),
-      name: 'MorphApiClient',
+      name: 'MorphOAuth2',
       fileName: 'index',
       formats: ['es', 'cjs'],
     },
     sourcemap: true,
     emptyOutDir: true,
+    rollupOptions: {
+      external: ['@morph/core'],
+    },
   },
 });

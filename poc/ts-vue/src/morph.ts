@@ -1,10 +1,11 @@
 import {
   MorphClient,
-  createBrowserSessionStorage,
   normalizeLoopbackOrigin,
   type MorphConfig,
   type MorphOptions,
-} from 'morph-api-client';
+} from '@morph/core';
+import { oauth2Plugin } from '@morph/oauth2';
+import { createBrowserSessionStorage } from '@morph/browser-storage';
 import morphConfigJson from '../../../docs/poc/poc-config.json';
 import { pushHostHttpTrace } from './hostHttpTraceStore';
 
@@ -186,6 +187,7 @@ export function warnPocOAuthRedirectIfNonLoopback(): void {
 }
 
 const options: MorphOptions = {
+  auth: oauth2Plugin,
   storage,
   variables: morphVariables,
   autoAcquireNonInteractive: true,

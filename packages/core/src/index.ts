@@ -15,11 +15,18 @@ export type {
   MorphContextMeta,
   TokenExchangeGrant,
   StorageProvider,
+  StorageConfig,
   NetworkDelegate,
   NetworkConfig,
+  NetworkPolicy,
   HostConfig,
   ProviderConfig,
   AuthContextConfig,
+  CtxRef,
+  AuthPlugin,
+  AuthPluginFactory,
+  DelegateMetadata,
+  InteractionMode,
   LogoutReason,
   MorphHttpTraceEvent,
   OAuthReturnResult,
@@ -38,7 +45,7 @@ export {
 } from './errors.js';
 
 export { validateAndIndexConfig } from './config/validate.js';
-export type { ResolvedMorphConfig, CtxRef } from './config/validate.js';
+export type { ResolvedMorphConfig } from './config/validate.js';
 
 export { decodeJwtPayload, getJwtExpirySeconds, getJwtSubject } from './util/jwt.js';
 export type { JwtPayload } from './util/jwt.js';
@@ -46,4 +53,3 @@ export { buildOAuth2AuthorizationUrl } from './util/oauthAuthorize.js';
 export { stripOAuthReturnSearchParams, cleanOAuthReturnFromBrowser } from './util/oauthReturn.js';
 export { encodeOAuthState, decodeOAuthState } from './util/oauthState.js';
 export { normalizeLoopbackOrigin } from './util/normalizeOrigin.js';
-export { createBrowserSessionStorage, createBrowserLocalStorage } from './storage/browserStorage.js';

@@ -72,7 +72,7 @@ The storage provider stores and returns this string as-is. Deserialization is ha
 For web applications, the SDK ships two ready-made `StorageProvider` implementations:
 
 ```typescript
-import { createBrowserSessionStorage, createBrowserLocalStorage } from 'morph-api-client';
+import { createBrowserSessionStorage, createBrowserLocalStorage } from '@morph/browser-storage';
 
 // sessionStorage — tokens survive SPA reload but not new tabs
 const storage = createBrowserSessionStorage('myapp:tk:');

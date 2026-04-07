@@ -1,6 +1,6 @@
-import type { AuthContextConfig, ProviderConfig, StorageConfig, TokenSet } from '../types.js';
-import { interpolateString } from '../config/interpolate.js';
-import { getJwtSubject } from '../util/jwt.js';
+import type { AuthContextConfig, ProviderConfig, StorageConfig, TokenSet } from '@morph/core';
+import { getJwtSubject } from '@morph/core';
+import { interpolateString } from '../util/interpolate.js';
 
 export interface PathManifest {
   accessKey: string;
