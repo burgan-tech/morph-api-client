@@ -5,7 +5,7 @@
 ## Installation
 
 ```bash
-npm install @morph/core @morph/oauth2 @morph/browser-storage
+npm install @morph/core @morph/oauth2 @morph/browser-storage @morph/logger
 ```
 
 ---
@@ -90,13 +90,17 @@ Plugins provide auth and storage capabilities. All `oauth2Plugin()` options are 
 import { MorphClient } from '@morph/core';
 import { oauth2Plugin } from '@morph/oauth2';
 import { browserStoragePlugin } from '@morph/browser-storage';
+import { loggerPlugin } from '@morph/logger';
 import config from './morph-config.json';
 
-// Minimal init -- defaults handle onAuthRequired + onLogout
+const logger = loggerPlugin({ level: 'info' });
+
 const morph = MorphClient.init(config, {
   plugins: [
+    logger,
     oauth2Plugin({
-      storage: browserStoragePlugin('myapp:tk:'),
+      logger,
+      storage: browserStoragePlugin({ prefix: 'myapp:tk:', logger }),
       variables: {
         deviceClientSecret: 'device-secret-xyz',
         userClientSecret: 'user-secret-uvw',
@@ -109,11 +113,12 @@ const morph = MorphClient.init(config, {
 });
 ```
 
-Override only the callbacks you need (all are optional with defaults):
+Create one logger and pass it to every plugin. All log output flows through a single pipeline. Override only the callbacks you need (all are optional with defaults):
 
 ```typescript
 oauth2Plugin({
-  storage: browserStoragePlugin('myapp:tk:'),
+  logger,
+  storage: browserStoragePlugin({ prefix: 'myapp:tk:', logger }),
   callbacks: {
     onAuthRequired: (authId, metadata) => {
       if (metadata.interaction === 'interactive') router.navigate('/login', { authId });
@@ -125,7 +130,7 @@ oauth2Plugin({
 })
 ```
 
-Core `MorphOptions` only holds shared concerns (`onLog`, `onHttpTrace`, `onSignPayload`, `onDecryptResponse`). Plugin-specific callbacks and variables are passed directly to the plugin factory.
+Core `MorphOptions` only holds shared concerns (`onHttpTrace`, `onSignPayload`, `onDecryptResponse`). Logging is handled by `@morph/logger` -- create one logger plugin and pass it to every plugin that needs it. Callbacks and variables are passed directly to each plugin factory.
 
 ---
 

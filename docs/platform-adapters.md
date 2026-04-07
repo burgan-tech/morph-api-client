@@ -75,14 +75,28 @@ For web applications, the `@morph/browser-storage` package provides a ready-made
 import { MorphClient } from '@morph/core';
 import { oauth2Plugin } from '@morph/oauth2';
 import { browserStoragePlugin } from '@morph/browser-storage';
+import { loggerPlugin } from '@morph/logger';
+
+const logger = loggerPlugin({ level: 'info' });
 
 MorphClient.init(config, {
   plugins: [
-    browserStoragePlugin('myapp:tk:'),           // sessionStorage (default)
-    // browserStoragePlugin('myapp:tk:', 'local'), // or localStorage
-    oauth2Plugin(),
+    logger,
+    oauth2Plugin({
+      logger,
+      storage: browserStoragePlugin({ prefix: 'myapp:tk:', logger }),
+    }),
   ],
 });
+```
+
+Short form (without explicit logger):
+
+```typescript
+oauth2Plugin({
+  storage: browserStoragePlugin('myapp:tk:'),         // sessionStorage (default)
+  // storage: browserStoragePlugin('myapp:tk:', 'local'), // localStorage
+})
 ```
 
 The plugin creates a `StorageProvider` that prefixes all keys with the given string and delegates to the browser's `sessionStorage` or `localStorage`. It ignores `StorageConfig.protection` (browser storage has no encryption layer -- use a custom plugin for encrypted storage).
@@ -244,24 +258,37 @@ const morph = MorphClient.init(config, {
 
 ## Logging
 
-The SDK uses a single `onLog` callback on `MorphOptions` for all diagnostic output:
+Use the `@morph/logger` plugin for structured logging. Create one logger instance and pass it to every plugin:
 
 ```typescript
-const morph = MorphClient.init(config, {
+import { loggerPlugin } from '@morph/logger';
+
+const logger = loggerPlugin({ level: 'info', prefix: '[morph] ' });
+
+MorphClient.init(config, {
+  plugins: [
+    logger,
+    oauth2Plugin({ logger, storage: browserStoragePlugin({ prefix: 'myapp:', logger }) }),
+  ],
+});
+```
+
+All plugins route their log output through the shared logger. Custom log backends (remote telemetry, file logging) can be provided via the `onLog` option on `loggerPlugin()`:
+
+```typescript
+const logger = loggerPlugin({
   onLog: (level, message, error, context) => {
-    console.log(`[morph:${level}] ${message}`, context ?? '');
-    if (error) console.error(error);
+    myTelemetry.send({ level, message, error, ...context });
   },
-  // ...
 });
 ```
 
 ### Log Levels
 
-- **debug** — Token resolution steps, storage reads/writes, low-level details.
-- **info** — Successful token refresh, client_credentials renewal, token exchange, authorization_code storage, 401-driven refresh.
-- **warn** — Proactive refresh failure, exchange failure, logout endpoint failure.
-- **error** — Unrecoverable failures.
+- **debug** -- Token resolution steps, storage reads/writes, low-level details.
+- **info** -- Successful token refresh, client_credentials renewal, token exchange, authorization_code storage, 401-driven refresh.
+- **warn** -- Proactive refresh failure, exchange failure, logout endpoint failure, default `onAuthRequired`.
+- **error** -- Unrecoverable failures.
 
 All log messages include `authId` in the context map for filtering.
 

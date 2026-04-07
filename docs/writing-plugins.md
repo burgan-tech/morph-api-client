@@ -157,7 +157,7 @@ plugins: [
 ]
 ```
 
-**Callback defaults:** `onAuthRequired` logs a warning, `onLogout` logs info, `onTokenChange` is a no-op. Override only the callbacks you need.
+**Callback defaults:** `onAuthRequired` logs at `warn` level via the resolved `logger`, `onLogout` logs at `info` level, `onTokenChange` is a no-op. Override only the callbacks you need.
 
 **Storage options:** Pass `browserStoragePlugin(...)` (a `MorphPlugin`) or a raw `StorageProvider`, or omit and add a separate storage plugin to the array.
 
@@ -373,10 +373,13 @@ import { oauth2Plugin } from '@morph/oauth2';
 import { loggerPlugin } from '@morph/logger';
 import config from './morph-config.json';
 
+const logger = loggerPlugin({ level: 'debug' });
+
 const morph = MorphClient.init(config, {
   plugins: [
-    loggerPlugin({ level: 'debug' }),
+    logger,
     oauth2Plugin({
+      logger,
       storage: secureStoragePlugin('encryption-key-from-keychain'),
       variables: { deviceClientSecret: '...' },
       callbacks: {

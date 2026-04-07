@@ -20,26 +20,25 @@ Creates and configures the SDK. Validates the config, initializes all providers,
 import { MorphClient } from '@morph/core';
 import { oauth2Plugin } from '@morph/oauth2';
 import { browserStoragePlugin } from '@morph/browser-storage';
+import { loggerPlugin } from '@morph/logger';
 import config from './morph-config.json';
+
+const logger = loggerPlugin({ level: 'info' });
 
 const morph = MorphClient.init(config, {
 
   plugins: [
-    browserStoragePlugin('myapp:tk:'),
+    logger,
     oauth2Plugin({
+      logger,
+      storage: browserStoragePlugin({ prefix: 'myapp:tk:', logger }),
       callbacks: {
         onAuthRequired: (authId, metadata) => {
           if (metadata.interaction === 'non-interactive') {
             morph.auth(authId).acquireWithClientCredentials();
           } else if (metadata.interaction === 'interactive') {
-            router.navigate('/login', { authId, workflow: metadata.workflow });
-          } else if (metadata.interaction === 'redirect') {
-            window.location.href = `/auth/redirect?authId=${authId}`;
+            router.navigate('/login', { authId });
           }
-        },
-        onLogout: (authId, reason) => {
-          console.log(`[${authId}] logged out: ${reason}`);
-          if (authId === 'burgan-auth/1fa') router.navigate('/login');
         },
         onTokenChange: (authId, tokens) => {
           if (authId === 'burgan-auth/1fa') setIsLoggedIn(!!tokens);
@@ -48,26 +47,14 @@ const morph = MorphClient.init(config, {
       },
       variables: {
         deviceClientId: 'abc-123',
-        '1faClientId': 'def-456',
-        googleClientId: '789.apps.googleusercontent.com',
         deviceId: getDeviceId(),
         installationId: getInstallationId(),
       },
       autoAcquireNonInteractive: true,
-      onTokenExchange: async (grant) => {
-        if (grant.type === 'token_exchange' && grant.authId === 'burgan-auth/2fa') {
-          const res = await fetch('/api/custom-step-up', {
-            headers: { 'Authorization': `Bearer ${grant.sourceToken}` },
-            method: 'POST',
-          });
-          return await res.json();
-        }
-        return null;
-      },
     }),
   ],
 
-  // --- Core-level options (shared across all plugins) ---
+  // --- Core-level options (shared, not plugin-specific) ---
 
   networkDelegate: {
     async getNetworkConfig(hostname) {
@@ -89,17 +76,14 @@ const morph = MorphClient.init(config, {
   onDecryptResponse: async (encryptedBody, authId) => {
     return await cryptoModule.decrypt(encryptedBody, decryptionKey);
   },
-
-  onLog: (level, message, error, context) => {
-    console.log(`[morph:${level}] ${message}`, context ?? '');
-  },
 });
 ```
 
 Throws `ConfigValidationError` if the config is invalid.
 
 **What goes where:**
-- **Plugin options** (`oauth2Plugin({ ... })`): `callbacks`, `variables` (auth-specific like client secrets), `onTokenExchange`, `onClientJwtAssertion`, `autoAcquireNonInteractive`
+- **Logger** (`loggerPlugin({ ... })`): Create once, pass to every plugin via `logger` option. Controls log level, prefix, and output format.
+- **Plugin options** (`oauth2Plugin({ ... })`): `logger`, `storage`, `callbacks`, `variables`, `onTokenExchange`, `onClientJwtAssertion`, `autoAcquireNonInteractive`
 - **Core options** (`MorphOptions`): `onLog`, `onHttpTrace`, `onSignPayload`, `onDecryptResponse`, `networkDelegate`, shared `variables` (like `deviceId`)
 
 Include **`deviceId`** and **`installationId`** in `variables` when the JSON config interpolates them (e.g. `X-Device-Id`, `X-Installation-Id`). On mobile, `installationId` is usually a GUID created on first install after download; the Vue web PoC simulates that with browser-local and session-scoped ids.
@@ -663,19 +647,21 @@ interface MorphOptions {
 - `plugins` — Array of `MorphPlugin` instances. Plugins declare `provides` and `requires` for automatic dependency resolution (topological sort). The combined set must include exactly one plugin that calls `ctx.provideAuth()` and one that calls `ctx.provideStorage()`. Order does not matter. See [Writing Plugins](writing-plugins.md).
 - `variables` — Shared variable map for `$variable` interpolation in config (host headers, etc.). Plugin-specific variables (client secrets) should be passed to the plugin directly.
 
-**Core delegates (shared across all plugins):**
+**Core delegates (shared):**
 - `networkDelegate` -- SSL pins, mTLS cert, proxy per hostname. Lazy, per first request.
 - `onSignPayload` -- JWS signing. Called when `sign: true`. Returns signature string.
 - `onDecryptResponse` -- Response decryption. Called when `encrypted: true`. Returns decrypted plaintext.
-- `onLog` -- Log delegate. Shared with plugins that don't provide their own.
+- `onLog` -- Low-level log hook. Prefer `loggerPlugin()` and pass the `logger` instance to each plugin.
 - `onHttpTrace` -- Structured host HTTP trace. Fired once per `fetch()`.
 
-**Moved to `oauth2Plugin()` options:**
-- `callbacks` (`onAuthRequired`, `onLogout`, `onTokenChange`) -- auth lifecycle notifications
-- `onTokenExchange` -- custom token exchange logic
-- `onClientJwtAssertion` -- signed JWT assertion for `private_key_jwt` client auth
-- `autoAcquireNonInteractive` -- auto-acquire device tokens
-- `variables` (plugin-specific: client secrets, redirect URIs)
+**Logging:** Use `@morph/logger` -- create one `loggerPlugin()` instance and pass it as the `logger` option to `oauth2Plugin`, `browserStoragePlugin`, etc. All plugins route their log output through the shared logger.
+
+**Plugin-level options (passed to each plugin factory):**
+- `logger` -- `MorphPlugin | LogFn` -- the shared logger for this plugin
+- `storage` -- `StorageProvider | MorphPlugin` -- inline storage (oauth2Plugin only)
+- `callbacks` -- `Partial<MorphCallbacks>` -- auth lifecycle (oauth2Plugin only)
+- `variables` -- plugin-specific variables (client secrets, redirect URIs)
+- `onTokenExchange`, `onClientJwtAssertion`, `autoAcquireNonInteractive` -- oauth2Plugin only
 
 ---
 
@@ -713,8 +699,8 @@ interface MorphCallbacks {
 ```
 
 **Defaults (when not overridden):**
-- `onAuthRequired` -- `console.warn('[morph] onAuthRequired', authId)`
-- `onLogout` -- `console.info('[morph] onLogout', authId, reason)`
+- `onAuthRequired` -- logs via the resolved `logger` at `warn` level (or no-op if no logger)
+- `onLogout` -- logs via the resolved `logger` at `info` level (or no-op if no logger)
 - `onTokenChange` -- not set (no-op)
 
 **Override only what you need:**
