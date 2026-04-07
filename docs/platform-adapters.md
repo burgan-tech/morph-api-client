@@ -161,8 +161,9 @@ function memoryStoragePlugin(): MorphPlugin {
 }
 
 const morph = MorphClient.init(config, {
-  plugins: [memoryStoragePlugin(), oauth2Plugin()],
-  callbacks: { /* ... */ },
+  plugins: [
+    oauth2Plugin({ storage: memoryStoragePlugin() }),
+  ],
 });
 ```
 

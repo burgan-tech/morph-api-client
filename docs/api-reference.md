@@ -496,21 +496,21 @@ async function getInitialRoute(): Promise<string> {
 const isLoggedIn = await morph.auth('burgan-auth/1fa').hasValidToken();
 ```
 
-For synchronous UI state (render loops, build methods), use the `onTokenChange` callback to maintain local state:
+For synchronous UI state (render loops, build methods), pass `onTokenChange` to `oauth2Plugin`:
 
 ```typescript
-// In your app state / store
 let isLoggedIn = false;
 let canTransfer = false;
 
-// onTokenChange keeps these in sync reactively
-callbacks: {
-  onTokenChange: (authId, tokens) => {
-    if (authId === 'burgan-auth/1fa') isLoggedIn = !!tokens;
-    if (authId === 'burgan-auth/2fa') canTransfer = !!tokens;
+oauth2Plugin({
+  storage: browserStoragePlugin('myapp:tk:'),
+  callbacks: {
+    onTokenChange: (authId, tokens) => {
+      if (authId === 'burgan-auth/1fa') isLoggedIn = !!tokens;
+      if (authId === 'burgan-auth/2fa') canTransfer = !!tokens;
+    },
   },
-}
-
+})
 // Then in UI: use isLoggedIn / canTransfer (sync, always fresh)
 ```
 
@@ -702,7 +702,7 @@ interface MorphHttpTraceEvent {
 
 ### MorphCallbacks
 
-All callbacks are `void` — they notify the host app, they don't return values. All receive `authId` in `provider/context` format.
+Passed to `oauth2Plugin({ callbacks })`. All callbacks are `void` and receive `authId` in `provider/context` format. All fields are **optional** -- the plugin provides defaults.
 
 ```typescript
 interface MorphCallbacks {
@@ -712,39 +712,26 @@ interface MorphCallbacks {
 }
 ```
 
+**Defaults (when not overridden):**
+- `onAuthRequired` -- `console.warn('[morph] onAuthRequired', authId)`
+- `onLogout` -- `console.info('[morph] onLogout', authId, reason)`
+- `onTokenChange` -- not set (no-op)
+
+**Override only what you need:**
+
 ```typescript
-const callbacks: MorphCallbacks = {
-  onAuthRequired: (authId, metadata) => {
-    // authId = 'burgan-auth/device', 'burgan-auth/1fa', 'edevlet-auth/edevlet', etc.
-    const [provider, context] = authId.split('/');
-
-    switch (metadata.interaction) {
-      case 'non-interactive':
-        morph.auth(authId).acquireWithClientCredentials();
-        break;
-      case 'interactive':
-        router.navigate('/login', { authId });
-        break;
-      case 'redirect':
-        window.location.href = `/auth/redirect?authId=${authId}`;
-        break;
-    }
+oauth2Plugin({
+  storage: browserStoragePlugin('myapp:tk:'),
+  callbacks: {
+    onLogout: (authId, reason) => {
+      if (reason === 'session_expired') showToast('Session expired.');
+      if (authId === 'burgan-auth/1fa') router.navigate('/login');
+    },
+    onTokenChange: (authId, tokens) => {
+      if (authId === 'burgan-auth/1fa') setIsLoggedIn(!!tokens);
+    },
   },
-
-  onLogout: (authId, reason) => {
-    if (reason === 'session_expired') {
-      showToast('Session expired. Please log in again.');
-    }
-    if (authId === 'burgan-auth/1fa') {
-      router.navigate('/login');
-    }
-  },
-
-  onTokenChange: (authId, tokens) => {
-    if (authId === 'burgan-auth/1fa') setIsLoggedIn(!!tokens);
-    if (authId === 'burgan-auth/2fa') setCanTransfer(!!tokens);
-  },
-};
+})
 ```
 
 ---
@@ -766,9 +753,9 @@ interface TokenExchangeGrant {
 ```
 
 ```typescript
-// Provided at init as a functional delegate (not inside callbacks)
-const morph = MorphClient.init(config, {
-  // ...
+// Passed to oauth2Plugin (not MorphOptions)
+oauth2Plugin({
+  storage: browserStoragePlugin('myapp:tk:'),
   onTokenExchange: async (grant) => {
     if (grant.type === 'token_exchange' && grant.authId === 'burgan-auth/2fa') {
       const res = await fetch('/api/custom-step-up', {
@@ -778,9 +765,9 @@ const morph = MorphClient.init(config, {
       const tokens = await res.json();
       return { accessToken: tokens.access_token, refreshToken: tokens.refresh_token };
     }
-    return null; // all other exchanges → let SDK handle standard OAuth2
+    return null; // standard OAuth2 exchange
   },
-});
+})
 ```
 
 ---

@@ -98,7 +98,7 @@ A context represents a single authentication scheme within a provider. Each cont
 | `key` | `string` | Yes | Unique identifier for this auth context within the provider. Combined with provider key to form auth id: `morph-auth/device`. Also available as the `$key` interpolation variable. |
 | `clientId` | `string` | No | OAuth2 client identifier. Supports `$variable` interpolation. |
 | `clientSecret` | `string` | No | OAuth2 client secret. Supports `$variable` interpolation. **Never exposed** via `getProviderMeta()`. |
-| `clientAuth` | `string` | No | Client authentication method: `"client_secret_post"` (default) or `"private_key_jwt"`. When `private_key_jwt`, the SDK calls `MorphOptions.onClientJwtAssertion` to obtain a signed assertion. |
+| `clientAuth` | `string` | No | Client authentication method: `"client_secret_post"` (default) or `"private_key_jwt"`. When `private_key_jwt`, the auth plugin calls `onClientJwtAssertion` (passed via `oauth2Plugin({ onClientJwtAssertion })`) to obtain a signed assertion. |
 
 ### identity
 

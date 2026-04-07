@@ -128,31 +128,40 @@ When `storage` is passed via options, `oauth2Plugin` sets `requires: []` so the 
 
 ### `@morph/oauth2` -- Auth Plugin
 
-Provides OAuth2 token lifecycle management (refresh, exchange, client credentials, authorization code). Accepts its own callbacks, variables, and configuration:
+Provides OAuth2 token lifecycle management (refresh, exchange, client credentials, authorization code). All options are **optional** -- the plugin provides default callbacks.
 
 ```typescript
 import { oauth2Plugin } from '@morph/oauth2';
+import { browserStoragePlugin } from '@morph/browser-storage';
 
+// Minimal -- defaults handle onAuthRequired + onLogout
 plugins: [
   oauth2Plugin({
-    callbacks: {
-      onAuthRequired: (authId, metadata) => { /* ... */ },
-      onLogout: (authId, reason) => { /* ... */ },
+    storage: browserStoragePlugin('myapp:tk:'),
+    variables: { deviceClientSecret: 'secret' },
+  }),
+]
+
+// Full options (all optional)
+plugins: [
+  oauth2Plugin({
+    storage: browserStoragePlugin('myapp:tk:'),  // or a raw StorageProvider, or omit for separate plugin
+    variables: { deviceClientSecret: 'secret' },
+    autoAcquireNonInteractive: true,
+    callbacks: {                                  // Partial -- only override what you need
       onTokenChange: (authId, tokens) => { /* ... */ },
     },
-    variables: {
-      deviceClientSecret: 'secret',
-      loginClientSecret: 'secret',
-    },
-    autoAcquireNonInteractive: true,
-    storage: customStorage,          // optional explicit DI
     onTokenExchange: async (grant) => null,
     onClientJwtAssertion: async (authId) => null,
   }),
 ]
 ```
 
-Calls `ctx.provideAuth()` with a `TokenLifecycle` instance that implements the `AuthPlugin` interface. Plugin-specific options (`callbacks`, `variables`, `onTokenExchange`, etc.) are encapsulated inside the plugin -- they do not pollute `MorphOptions`.
+**Callback defaults:** `onAuthRequired` logs a warning, `onLogout` logs info, `onTokenChange` is a no-op. Override only the callbacks you need.
+
+**Storage options:** Pass `browserStoragePlugin(...)` (a `MorphPlugin`) or a raw `StorageProvider`, or omit and add a separate storage plugin to the array.
+
+Calls `ctx.provideAuth()` with a `TokenLifecycle` instance that implements the `AuthPlugin` interface.
 
 ### `@morph/browser-storage` -- Storage Plugin
 
@@ -334,15 +343,17 @@ import config from './morph-config.json';
 
 const morph = MorphClient.init(config, {
   plugins: [
-    secureStoragePlugin('encryption-key-from-keychain'),
-    oauth2Plugin(),
+    oauth2Plugin({
+      storage: secureStoragePlugin('encryption-key-from-keychain'),
+      variables: { deviceClientSecret: '...' },
+      callbacks: {
+        onLogout: (authId, reason) => {
+          if (reason === 'session_expired') showToast('Session expired.');
+        },
+      },
+    }),
     requestLoggerPlugin(),
   ],
-  callbacks: {
-    onAuthRequired: (authId, metadata) => { /* ... */ },
-    onLogout: (authId, reason) => { /* ... */ },
-  },
-  variables: { /* ... */ },
 });
 ```
 

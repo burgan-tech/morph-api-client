@@ -84,7 +84,7 @@ See [Configuration Reference](configuration.md) for a full field reference.
 
 ## Initialization
 
-Plugins provide auth and storage capabilities. The runtime topologically sorts them by `provides` / `requires`, so order in the array does not matter. You can also inject dependencies directly: `oauth2Plugin({ storage: myCustomStorage })`.
+Plugins provide auth and storage capabilities. All `oauth2Plugin()` options are optional -- the plugin provides sensible defaults for callbacks. The runtime topologically sorts plugins by `provides` / `requires`, so order does not matter.
 
 ```typescript
 import { MorphClient } from '@morph/core';
@@ -92,29 +92,13 @@ import { oauth2Plugin } from '@morph/oauth2';
 import { browserStoragePlugin } from '@morph/browser-storage';
 import config from './morph-config.json';
 
+// Minimal init -- defaults handle onAuthRequired + onLogout
 const morph = MorphClient.init(config, {
   plugins: [
-    browserStoragePlugin('myapp:tk:'),
     oauth2Plugin({
-      callbacks: {
-        onAuthRequired: (authId, metadata) => {
-          if (metadata.interaction === 'non-interactive') {
-            morph.auth(authId).acquireWithClientCredentials();
-          } else if (metadata.interaction === 'interactive') {
-            router.navigate('/login', { authId });
-          }
-        },
-        onLogout: (authId, reason) => {
-          console.log(`Logged out of ${authId}: ${reason}`);
-          if (authId === 'my-auth/user') {
-            router.navigate('/login');
-          }
-        },
-      },
+      storage: browserStoragePlugin('myapp:tk:'),
       variables: {
-        deviceClientId: 'device-client-abc',
         deviceClientSecret: 'device-secret-xyz',
-        userClientId: 'user-client-def',
         userClientSecret: 'user-secret-uvw',
         oauthRedirectUri: `${window.location.origin}/oauth/callback`,
         deviceId: getDeviceId(),
@@ -125,7 +109,23 @@ const morph = MorphClient.init(config, {
 });
 ```
 
-Each plugin receives its own configuration. The core `MorphOptions` only holds shared concerns (`onLog`, `onHttpTrace`, `onSignPayload`, `onDecryptResponse`). Plugin-specific callbacks and variables are passed directly to the plugin factory.
+Override only the callbacks you need (all are optional with defaults):
+
+```typescript
+oauth2Plugin({
+  storage: browserStoragePlugin('myapp:tk:'),
+  callbacks: {
+    onAuthRequired: (authId, metadata) => {
+      if (metadata.interaction === 'interactive') router.navigate('/login', { authId });
+    },
+    onLogout: (authId, reason) => {
+      if (authId === 'my-auth/user') router.navigate('/login');
+    },
+  },
+})
+```
+
+Core `MorphOptions` only holds shared concerns (`onLog`, `onHttpTrace`, `onSignPayload`, `onDecryptResponse`). Plugin-specific callbacks and variables are passed directly to the plugin factory.
 
 ---
 
@@ -199,20 +199,19 @@ if (await morph.auth('my-auth/user').hasValidToken()) {
 }
 ```
 
-For synchronous UI state, use the `onTokenChange` callback:
+For synchronous UI state, pass `onTokenChange` to `oauth2Plugin`:
 
 ```typescript
 let isLoggedIn = false;
 
-const morph = MorphClient.init(config, {
-  // ...
+oauth2Plugin({
+  storage: browserStoragePlugin('myapp:tk:'),
   callbacks: {
-    // ...
     onTokenChange: (authId, tokens) => {
       if (authId === 'my-auth/user') isLoggedIn = !!tokens;
     },
   },
-});
+})
 ```
 
 ---
