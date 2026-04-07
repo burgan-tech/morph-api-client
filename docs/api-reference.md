@@ -18,20 +18,16 @@ Creates and configures the SDK. Validates the config, initializes all providers,
 
 ```typescript
 import { MorphClient } from '@morph/core';
+import { oauth2Plugin } from '@morph/oauth2';
+import { browserStoragePlugin } from '@morph/browser-storage';
 import config from './morph-config.json';
-
-const tokenStore = new Map<string, string>();
 
 const morph = MorphClient.init(config, {
 
-  storage: {
-    read: async (key, storageConfig) => tokenStore.get(key) ?? null,
-    write: async (key, value, storageConfig) => { tokenStore.set(key, value); },
-    delete: async (key, storageConfig) => { tokenStore.delete(key); },
-    deleteByPrefix: async (prefix, storageConfig) => {
-      for (const k of tokenStore.keys()) if (k.startsWith(prefix)) tokenStore.delete(k);
-    },
-  },
+  plugins: [
+    browserStoragePlugin('myapp:tk:'),
+    oauth2Plugin(),
+  ],
 
   callbacks: {
     onAuthRequired: (authId, metadata) => {
@@ -671,8 +667,8 @@ const mainApi: HostConfig = {
 
 ```typescript
 interface MorphOptions {
-  // Data
-  storage: StorageProvider;
+  // Plugins — declare capabilities at init time
+  plugins: MorphPlugin[];
   variables?: Record<string, string>;
 
   // Notifications (void callbacks — inform the host app)
@@ -684,18 +680,14 @@ interface MorphOptions {
   onSignPayload?: (payload: string, authId: string) => Promise<string>;
   onDecryptResponse?: (encryptedBody: string, authId: string) => Promise<string>;
   onLog?: (level: 'debug' | 'info' | 'warn' | 'error', message: string, error?: Error, context?: Record<string, unknown>) => void;
-  /** After each `host().get/post/...` attempt (401 refresh retry = second event). */
   onHttpTrace?: (event: MorphHttpTraceEvent) => void;
-
-  /** When `clientAuth` is `private_key_jwt`, return a signed client assertion JWT for the token endpoint. If omitted and `clientSecret` is present, `client_secret` is used instead. */
   onClientJwtAssertion?: (authId: string) => Promise<string | null>;
-  /** Automatically acquire client_credentials for non-interactive contexts on `onAuthRequired`. Default false. */
   autoAcquireNonInteractive?: boolean;
 }
 ```
 
-**Data:**
-- `storage` — Token storage delegate. SDK provides `createBrowserSessionStorage(prefix?)` and `createBrowserLocalStorage(prefix?)` for web apps.
+**Plugins:**
+- `plugins` — Array of `MorphPlugin` instances. Each plugin calls `ctx.provideAuth()` and/or `ctx.provideStorage()` during init. Exactly one auth plugin and one storage plugin are required. See [Writing Plugins](writing-plugins.md).
 - `variables` — Variable map for `$variable` interpolation in config.
 
 **Notifications (callbacks):**
@@ -1121,15 +1113,23 @@ try {
 
 ### Browser Storage Factories
 
-Ready-made `StorageProvider` implementations for web apps.
+Ready-made `StorageProvider` implementations for web apps, available as a plugin or standalone factory.
 
 ```typescript
+import { browserStoragePlugin } from '@morph/browser-storage';
+
+// As a plugin (recommended)
+MorphClient.init(config, {
+  plugins: [
+    browserStoragePlugin('myapp:tk:'),           // sessionStorage (default)
+    browserStoragePlugin('myapp:tk:', 'local'),   // or localStorage
+    oauth2Plugin(),
+  ],
+});
+
+// As standalone factories (for custom plugins or direct use)
 import { createBrowserSessionStorage, createBrowserLocalStorage } from '@morph/browser-storage';
-
-// sessionStorage — tokens survive SPA reload but not new tabs
 const storage = createBrowserSessionStorage('myapp:tk:');
-
-// localStorage — tokens persist across tabs and sessions
 const storage = createBrowserLocalStorage('myapp:tk:');
 ```
 

@@ -167,7 +167,7 @@ morph-api-client/
 │   │       ├── tokens/              # TokenLifecycle (implements AuthPlugin), TokenVault
 │   │       ├── oauth/               # tokenHttp (grant HTTP)
 │   │       ├── util/                # interpolate, expiry, exchangeSources
-│   │       └── index.ts             # createOAuth2Plugin, oauth2Plugin factory
+│   │       └── index.ts             # oauth2Plugin() MorphPlugin factory
 │   └── browser-storage/             # @morph/browser-storage — browser storage adapters
 │       └── src/
 │           ├── browserStorage.ts    # createBrowserSessionStorage, createBrowserLocalStorage

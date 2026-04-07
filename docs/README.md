@@ -13,6 +13,7 @@
 | Document | Description |
 |----------|-------------|
 | [Getting Started](getting-started.md) | SDK installation, initialization, making API calls, providing tokens |
+| [Writing Plugins](writing-plugins.md) | How to create custom MorphPlugin implementations (auth, storage, or custom) |
 | [Configuration](configuration.md) | Full reference for every config field (providers, contexts, hosts, variables) |
 | [API Reference](api-reference.md) | Complete public API: MorphClient, HostClient, AuthHandle, types, errors |
 | [Token Lifecycle](token-lifecycle.md) | Token resolution algorithm, refresh, exchange, recovery, session monitoring |

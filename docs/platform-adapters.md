@@ -67,23 +67,25 @@ The storage provider stores and returns this string as-is. Deserialization is ha
 
 ---
 
-## SDK-Provided Browser Storage Factories
+## SDK-Provided Browser Storage Plugin
 
-For web applications, the SDK ships two ready-made `StorageProvider` implementations:
+For web applications, the `@morph/browser-storage` package provides a ready-made plugin:
 
 ```typescript
-import { createBrowserSessionStorage, createBrowserLocalStorage } from '@morph/browser-storage';
+import { browserStoragePlugin } from '@morph/browser-storage';
 
-// sessionStorage — tokens survive SPA reload but not new tabs
-const storage = createBrowserSessionStorage('myapp:tk:');
-
-// localStorage — tokens persist across tabs and sessions
-const storage = createBrowserLocalStorage('myapp:tk:');
+MorphClient.init(config, {
+  plugins: [
+    browserStoragePlugin('myapp:tk:'),           // sessionStorage (default)
+    // browserStoragePlugin('myapp:tk:', 'local'), // or localStorage
+    oauth2Plugin(),
+  ],
+});
 ```
 
-These factories create a `StorageProvider` that prefixes all keys with the given string and delegates to the browser's `sessionStorage` or `localStorage`. They ignore `StorageConfig.protection` (browser storage has no encryption layer — use a custom implementation for encrypted storage).
+The plugin creates a `StorageProvider` that prefixes all keys with the given string and delegates to the browser's `sessionStorage` or `localStorage`. It ignores `StorageConfig.protection` (browser storage has no encryption layer -- use a custom plugin for encrypted storage).
 
-For production apps with sensitive tokens, implement a custom `StorageProvider` that uses Web Crypto API for the `"encrypted"` protection level.
+For production apps with sensitive tokens, write a custom storage plugin using the `MorphPlugin` interface. See [Writing Plugins](writing-plugins.md).
 
 ---
 
@@ -132,25 +134,35 @@ const storage: StorageProvider = {
 
 ## In-Memory Storage (Dev/Test)
 
-For development and testing, a simple in-memory storage is sufficient:
+For development and testing, write a simple in-memory storage plugin:
 
 ```typescript
-const tokenStore = new Map<string, string>();
+import type { MorphPlugin } from '@morph/core';
+
+function memoryStoragePlugin(): MorphPlugin {
+  const store = new Map<string, string>();
+  return {
+    name: 'memory-storage',
+    install(ctx) {
+      ctx.provideStorage({
+        read: async (key) => store.get(key) ?? null,
+        write: async (key, value) => { store.set(key, value); },
+        delete: async (key) => { store.delete(key); },
+        deleteByPrefix: async (prefix) => {
+          for (const k of store.keys()) if (k.startsWith(prefix)) store.delete(k);
+        },
+      });
+    },
+  };
+}
 
 const morph = MorphClient.init(config, {
-  storage: {
-    read: async (key) => tokenStore.get(key) ?? null,
-    write: async (key, value) => { tokenStore.set(key, value); },
-    delete: async (key) => { tokenStore.delete(key); },
-    deleteByPrefix: async (prefix) => {
-      for (const k of tokenStore.keys()) if (k.startsWith(prefix)) tokenStore.delete(k);
-    },
-  },
+  plugins: [memoryStoragePlugin(), oauth2Plugin()],
   callbacks: { /* ... */ },
 });
 ```
 
-In-memory storage is not suitable for production — all tokens are lost when the process terminates.
+In-memory storage is not suitable for production -- all tokens are lost when the process terminates.
 
 ---
 

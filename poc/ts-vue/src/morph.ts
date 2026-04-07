@@ -5,7 +5,7 @@ import {
   type MorphOptions,
 } from '@morph/core';
 import { oauth2Plugin } from '@morph/oauth2';
-import { createBrowserSessionStorage } from '@morph/browser-storage';
+import { browserStoragePlugin } from '@morph/browser-storage';
 import morphConfigJson from '../../../docs/poc/poc-config.json';
 import { pushHostHttpTrace } from './hostHttpTraceStore';
 
@@ -54,7 +54,7 @@ export function getSimulationConsoleVerbose(): boolean {
 
 const morphConfig = buildMorphConfig();
 
-const storage = createBrowserSessionStorage('morph-poc:tk:');
+const STORAGE_PREFIX = 'morph-poc:tk:';
 
 /**
  * Mobile model: device token uses stable deviceId + installationId (GUID created on first install).
@@ -187,8 +187,10 @@ export function warnPocOAuthRedirectIfNonLoopback(): void {
 }
 
 const options: MorphOptions = {
-  auth: oauth2Plugin,
-  storage,
+  plugins: [
+    browserStoragePlugin(STORAGE_PREFIX),
+    oauth2Plugin(),
+  ],
   variables: morphVariables,
   autoAcquireNonInteractive: true,
   callbacks: {

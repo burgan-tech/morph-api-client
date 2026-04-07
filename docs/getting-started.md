@@ -87,12 +87,14 @@ See [Configuration Reference](configuration.md) for a full field reference.
 ```typescript
 import { MorphClient } from '@morph/core';
 import { oauth2Plugin } from '@morph/oauth2';
-import { createBrowserSessionStorage } from '@morph/browser-storage';
+import { browserStoragePlugin } from '@morph/browser-storage';
 import config from './morph-config.json';
 
 const morph = MorphClient.init(config, {
-  auth: oauth2Plugin,
-  storage: createBrowserSessionStorage('myapp:tk:'),
+  plugins: [
+    browserStoragePlugin('myapp:tk:'),
+    oauth2Plugin(),
+  ],
 
   callbacks: {
     onAuthRequired: (authId, metadata) => {

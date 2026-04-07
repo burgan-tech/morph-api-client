@@ -268,9 +268,22 @@ export interface AuthPlugin {
 
 export type AuthPluginFactory = (resolved: { config: MorphConfig; contextByAuthId: Map<string, CtxRef>; contextsByProvider: Map<string, AuthContextConfig[]>; hostByKey: Map<string, HostConfig> }, options: MorphOptions, variables: Record<string, string>) => AuthPlugin;
 
+export interface MorphPluginContext {
+  resolved: { config: MorphConfig; contextByAuthId: Map<string, CtxRef>; contextsByProvider: Map<string, AuthContextConfig[]>; hostByKey: Map<string, HostConfig> };
+  options: MorphOptions;
+  variables: Record<string, string>;
+  provideAuth(auth: AuthPlugin): void;
+  provideStorage(storage: StorageProvider): void;
+}
+
+export interface MorphPlugin {
+  name: string;
+  install(ctx: MorphPluginContext): void;
+  dispose?(): void;
+}
+
 export interface MorphOptions {
-  auth: AuthPlugin | AuthPluginFactory;
-  storage: StorageProvider;
+  plugins: MorphPlugin[];
   variables?: Record<string, string>;
   callbacks: MorphCallbacks;
   networkDelegate?: NetworkDelegate;
@@ -283,18 +296,14 @@ export interface MorphOptions {
     error?: Error,
     context?: Record<string, unknown>,
   ) => void;
-  /**
-   * After each host HTTP attempt (including a 401 refresh retry as a second event).
-   * Use for debug UIs; not a substitute for application logging — see {@link onLog}.
-   */
   onHttpTrace?: (event: MorphHttpTraceEvent) => void;
-  /**
-   * When `clientAuth` is `private_key_jwt`, return a signed client assertion JWT for the token endpoint.
-   * If omitted and `clientSecret` is present, client_secret is used instead (e.g. PoC Keycloak).
-   */
   onClientJwtAssertion?: (authId: string) => Promise<string | null>;
-  /** When true, SDK automatically calls `acquireWithClientCredentials` for contexts with `interaction: 'non-interactive'` on `onAuthRequired`. Default false. */
   autoAcquireNonInteractive?: boolean;
+
+  /** @internal Resolved by plugin system during init. Do not set directly. */
+  _resolvedAuth?: AuthPlugin;
+  /** @internal Resolved by plugin system during init. Do not set directly. */
+  _resolvedStorage?: StorageProvider;
 }
 
 export interface HostRequestOptions {

@@ -61,6 +61,7 @@ See **[docs/README.md](docs/README.md)** for the full documentation index.
 | [PoC Guide](docs/poc-guide.md) | Step-by-step walkthrough of the Vue PoC app |
 | [Troubleshooting](docs/troubleshooting.md) | Common errors and fixes |
 | [Getting Started](docs/getting-started.md) | SDK installation and basic usage |
+| [Writing Plugins](docs/writing-plugins.md) | How to create custom plugins (auth, storage, or utility) |
 | [Configuration](docs/configuration.md) | Full config field reference |
 | [API Reference](docs/api-reference.md) | Complete public API |
 | [Architecture](docs/architecture.md) | Internal design and module structure |

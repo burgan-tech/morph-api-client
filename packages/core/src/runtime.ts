@@ -1,13 +1,15 @@
 import type {
   AuthPlugin,
-  AuthPluginFactory,
   HostConfig,
   MorphConfig,
   MorphContextMeta,
   MorphOptions,
+  MorphPlugin,
+  MorphPluginContext,
   MorphProviderMeta,
   MorphTokenStatus,
   OAuthReturnResult,
+  StorageProvider,
 } from './types.js';
 import type { ResolvedMorphConfig, CtxRef } from './config/validate.js';
 import { validateAndIndexConfig } from './config/validate.js';
@@ -20,14 +22,41 @@ import { stripOAuthReturnSearchParams } from './util/oauthReturn.js';
 import { encodeOAuthState, decodeOAuthState } from './util/oauthState.js';
 import { HostPipeline } from './http/hostPipeline.js';
 
-function resolveAuthPlugin(auth: AuthPlugin | AuthPluginFactory, resolved: ResolvedMorphConfig, options: MorphOptions, variables: Record<string, string>): AuthPlugin {
-  if (typeof auth === 'function') return auth(resolved, options, variables);
-  return auth;
+function installPlugins(plugins: MorphPlugin[], resolved: ResolvedMorphConfig, options: MorphOptions, variables: Record<string, string>): { auth: AuthPlugin; storage: StorageProvider } {
+  let auth: AuthPlugin | undefined;
+  let storage: StorageProvider | undefined;
+
+  const ctx: MorphPluginContext = {
+    resolved,
+    options,
+    variables,
+    provideAuth(a) {
+      if (auth) throw new Error('Multiple plugins called provideAuth(). Only one auth plugin is allowed.');
+      auth = a;
+      options._resolvedAuth = a;
+    },
+    provideStorage(s) {
+      if (storage) throw new Error('Multiple plugins called provideStorage(). Only one storage plugin is allowed.');
+      storage = s;
+      options._resolvedStorage = s;
+    },
+  };
+
+  for (const plugin of plugins) {
+    plugin.install(ctx);
+  }
+
+  if (!auth) throw new Error('No plugin called provideAuth(). Add an auth plugin (e.g. oauth2Plugin()) to MorphOptions.plugins.');
+  if (!storage) throw new Error('No plugin called provideStorage(). Add a storage plugin (e.g. browserStoragePlugin()) to MorphOptions.plugins.');
+
+  return { auth, storage };
 }
 
 export class MorphRuntime {
   readonly tokens: AuthPlugin;
+  readonly storage: StorageProvider;
   readonly http: HostPipeline;
+  private readonly plugins: MorphPlugin[];
   private disposed = false;
 
   constructor(
@@ -35,7 +64,12 @@ export class MorphRuntime {
     readonly options: MorphOptions,
     private readonly variables: Record<string, string>,
   ) {
-    this.tokens = resolveAuthPlugin(options.auth, resolved, options, variables);
+    const { auth, storage } = installPlugins(options.plugins, resolved, options, variables);
+    this.tokens = auth;
+    this.storage = storage;
+    this.plugins = options.plugins;
+    options._resolvedAuth = auth;
+    options._resolvedStorage = storage;
     this.http = new HostPipeline(resolved, options, variables, this.tokens);
   }
 
@@ -45,6 +79,9 @@ export class MorphRuntime {
 
   dispose(): void {
     this.disposed = true;
+    for (const plugin of this.plugins) {
+      plugin.dispose?.();
+    }
     this.tokens.dispose();
   }
 

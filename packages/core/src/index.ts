@@ -25,6 +25,8 @@ export type {
   CtxRef,
   AuthPlugin,
   AuthPluginFactory,
+  MorphPlugin,
+  MorphPluginContext,
   DelegateMetadata,
   InteractionMode,
   LogoutReason,

@@ -5,6 +5,7 @@ import type {
   LogoutReason,
   MorphOptions,
   ProviderConfig,
+  StorageProvider,
   TokenExchangeGrant,
   TokenSet,
 } from '@morph/core';
@@ -37,8 +38,11 @@ export class TokenLifecycle implements AuthPlugin {
     private readonly options: MorphOptions,
     private readonly variables: Record<string, string>,
     private readonly log: MorphOptions['onLog'],
+    storage?: StorageProvider,
   ) {
-    this.vault = new TokenVault(variables, options.storage);
+    const s = storage ?? options._resolvedStorage;
+    if (!s) throw new Error('OAuth2 plugin requires a storage provider. Add a storage plugin before the auth plugin.');
+    this.vault = new TokenVault(variables, s);
   }
 
   dispose(): void {
