@@ -1,0 +1,18 @@
+name: morph_oauth2
+description: Dart parity for @morph/oauth2 (OAuth2 TokenLifecycle / TokenVault / plugin).
+publish_to: "none"
+version: 0.1.0
+
+environment:
+  sdk: ">=3.6.0 <4.0.0"
+
+dependencies:
+  http: ^1.2.2
+  morph_core:
+    path: ../morph_core
+
+dev_dependencies:
+  lints: ^5.1.1
+  test: ^1.25.8
+  morph_storage:
+    path: ../morph_storage
