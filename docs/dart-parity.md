@@ -2,8 +2,11 @@
 
 The TypeScript implementation is the reference today (`packages/core`, `packages/oauth2`,
 `packages/browser-storage`, `packages/logger`). **Dart/Flutter parity** is tracked on
-GitHub as [issue #1](https://github.com/burgan-tech/morph-api-client/issues/1); base
-branch for work is **`f/plugin`**.
+GitHub:
+- **[issue #1](https://github.com/burgan-tech/morph-api-client/issues/1)** — scaffold (`morph_core` stub, CI entry).
+- **[issue #3](https://github.com/burgan-tech/morph-api-client/issues/3)** — **full Dart/TS feature parity** (runtime, OAuth, storage, logger, pipelines).
+
+Base branch for work is **`f/plugin`** unless release policy changes.
 
 ## Scaffold (Phase 1)
 
@@ -25,7 +28,9 @@ Per [architecture.md](architecture.md):
 - **Platform adapters** for storage and HTTP: see [platform-adapters.md](platform-adapters.md)
   (Flutter secure storage, `dart:io` `HttpClient`, certificate pinning, etc.).
 
-## Next milestones (suggested)
+## Next milestones
+
+Detailed backlog and acceptance criteria: **[issue #3 — full Dart/TS parity](https://github.com/burgan-tech/morph-api-client/issues/3)**.
 
 | Milestone | Scope |
 |-----------|--------|
