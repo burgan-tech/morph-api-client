@@ -8,20 +8,22 @@ GitHub:
 
 Base branch for work is **`f/plugin`** unless release policy changes.
 
-## Scaffold (Phase 1)
+## Scaffold + config validation
 
-The package [`packages/dart/morph_core`](../packages/dart/morph_core) is the first
-Dart package:
+The package [`packages/dart/morph_core`](../packages/dart/morph_core) is the first Dart package:
 
 - **Public import:** `package:morph_core/morph_core.dart`
-- **Status:** `MorphClient.init` throws `UnimplementedError` until runtime, HTTP
-  pipeline, OAuth, and plugins are ported.
-- **CI:** `.github/workflows/dart.yml` runs `dart analyze` and `dart test` for this
-  package.
+- **Done:** **`validateAndIndexConfig`** parity with **`validate.ts`**; **`MorphClient.init`** validates config then **`UnimplementedError`** until runtime/oauth/http ([#3](https://github.com/burgan-tech/morph-api-client/issues/3)).
+- **Still TODO:** Typed `MorphConfig` / `MorphOptions` models (vs raw maps), Morph runtime / plugins.
+
+## CI
+
+**.github/workflows/dart.yml** runs `dart analyze --fatal-infos` and `dart test` for this package.
 
 ## Design intent (unchanged from TS)
 
 Per [architecture.md](architecture.md):
+
 
 - Same **JSON config** shape and validation behavior.
 - **Mirrored public API** with Dart idioms (`snake_case`, `Future` where async).
@@ -34,7 +36,7 @@ Detailed backlog and acceptance criteria: **[issue #3 — full Dart/TS parity](h
 
 | Milestone | Scope |
 |-----------|--------|
-| Config + types | Strongly typed `MorphConfig` / `MorphOptions` aligned with `packages/core/src/types.ts` |
+| Config validation | **Shipped:** `validateAndIndexConfig` + helpers (parity with `validate.ts`). **Next:** codegen or hand-written `MorphConfig` DTOs + `json` encoding |
 | Runtime + plugins | Topological plugin install, `provideAuth` / `provideStorage` equivalents |
 | OAuth2 + vault | Port `@morph/oauth2` token lifecycle (or new `packages/dart/morph_oauth2`) |
 | Storage | Secure / in-memory adapters for Flutter and VM |
