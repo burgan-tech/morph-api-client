@@ -1,4 +1,4 @@
-name: Dart (morph_core)
+name: Dart (packages)
 
 on:
   push:
@@ -7,11 +7,17 @@ on:
     branches: [main, f/plugin]
 
 jobs:
-  morph_core:
+  morph_dart:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package:
+          - morph_core
+          - morph_oauth2
     defaults:
       run:
-        working-directory: packages/dart/morph_core
+        working-directory: packages/dart/${{ matrix.package }}
     steps:
       - uses: actions/checkout@v4
       - uses: dart-lang/setup-dart@v1
