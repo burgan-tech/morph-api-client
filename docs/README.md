@@ -19,8 +19,7 @@
 | [Token Lifecycle](token-lifecycle.md) | Token resolution algorithm, refresh, exchange, recovery, session monitoring |
 | [Platform Adapters](platform-adapters.md) | StorageProvider (via plugins) and NetworkDelegate interfaces |
 | [Architecture](architecture.md) | Internal design: module structure, HTTP pipeline, dependency graph |
-
-## PoC-Specific
+| [Dart parity](dart-parity.md) | Dart/Flutter SDK roadmap, `packages/dart/morph_core` scaffold ([issue #1](https://github.com/burgan-tech/morph-api-client/issues/1)) |
 
 | Document | Description |
 |----------|-------------|

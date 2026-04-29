@@ -65,6 +65,7 @@ See **[docs/README.md](docs/README.md)** for the full documentation index.
 | [Configuration](docs/configuration.md) | Full config field reference |
 | [API Reference](docs/api-reference.md) | Complete public API |
 | [Architecture](docs/architecture.md) | Internal design and module structure |
+| [Dart parity](docs/dart-parity.md) | Dart/Flutter SDK roadmap (scaffold under `packages/dart/morph_core`) |
 
 ## Layout
 
@@ -74,6 +75,7 @@ See **[docs/README.md](docs/README.md)** for the full documentation index.
 | `packages/oauth2/` | `@morph/oauth2` | TokenLifecycle, TokenVault, OAuth helpers |
 | `packages/browser-storage/` | `@morph/browser-storage` | sessionStorage / localStorage adapters |
 | `packages/logger/` | `@morph/logger` | Structured logging and HTTP trace plugin |
+| `packages/dart/morph_core/` | `morph_core` | **Dart scaffold** (parity in progress); see [docs/dart-parity.md](docs/dart-parity.md) |
 | `poc/ts-vue/` | | Vue 3 demo app |
 | `poc/keycloak/` | | Docker Keycloak realm + setup/test scripts |
 | `poc/mock-api/` | | Mock REST API (Express, validates JWT) |
