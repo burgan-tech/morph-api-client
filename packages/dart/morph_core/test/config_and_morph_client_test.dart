@@ -42,7 +42,7 @@ void main() {
       expect(() => validateAndIndexConfig(minimalValidConfig()), returnsNormally);
       final r = validateAndIndexConfig(minimalValidConfig());
       expect(r.contextByAuthId['p/c'], isNotNull);
-      expect(r.hostByKey['api']?['baseUrl'], 'https://api.example');
+      expect(r.hostByKey['api']?.baseUrl, 'https://api.example');
     });
 
     test('matches TS errors when providers missing', () {
@@ -65,7 +65,7 @@ void main() {
   group('MorphClient.init', () {
     test('runs validation then fails with UnimplementedError on valid config', () {
       expect(
-        () => MorphClient.init(minimalValidConfig(), {}),
+        () => MorphClient.init(minimalValidConfig(), MorphOptions(plugins: const [])),
         throwsA(isA<UnimplementedError>()),
       );
     });
