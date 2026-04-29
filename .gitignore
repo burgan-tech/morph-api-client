@@ -4,3 +4,7 @@ dist/
 .env
 .env.local
 .DS_Store
+
+# Dart (packages/dart/*)
+.dart_tool/
+**/packages/dart/**/.dart_tool/

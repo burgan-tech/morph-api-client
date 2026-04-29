@@ -1,0 +1,13 @@
+name: morph_core
+description: >
+  Dart port of @morph/core (Morph API Client). Scaffold: mirrors TypeScript init
+  shape; OAuth, HTTP pipeline, and plugins unimplemented until parity milestones.
+publish_to: "none"
+version: 0.1.0
+
+environment:
+  sdk: ">=3.6.0 <4.0.0"
+
+dev_dependencies:
+  lints: ^5.1.1
+  test: ^1.25.8

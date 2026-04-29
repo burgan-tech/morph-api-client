@@ -1,7 +1,8 @@
 .PHONY: help install build dev mock-api \
-       keycloak-up keycloak-down keycloak-setup keycloak-test keycloak-logs \
-       keycloak-short-tokens keycloak-restore-tokens \
-       up down stop clean
+	dart-get dart-analyze dart-test dart-all \
+	keycloak-up keycloak-down keycloak-setup keycloak-test keycloak-logs \
+	keycloak-short-tokens keycloak-restore-tokens \
+	up down stop clean
 
 help: ## Show available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | \
@@ -24,6 +25,17 @@ build: ## Build all SDK packages (core → oauth2 → browser-storage → logger
 	cd packages/oauth2          && npm run build
 	cd packages/browser-storage && npm run build
 	cd packages/logger          && npm run build
+
+dart-get: ## Dart: pub get (packages/dart/morph_core)
+	cd packages/dart/morph_core && dart pub get
+
+dart-analyze: ## Dart: analyze morph_core
+	cd packages/dart/morph_core && dart analyze --fatal-infos
+
+dart-test: ## Dart: test morph_core
+	cd packages/dart/morph_core && dart test
+
+dart-all: dart-get dart-analyze dart-test ## Dart: get + analyze + test morph_core
 
 # ---------------------------------------------------------------------------
 # Dev servers
@@ -99,3 +111,4 @@ clean: ## Remove node_modules and dist artefacts
 	rm -rf packages/logger/node_modules packages/logger/dist
 	rm -rf poc/ts-vue/node_modules poc/ts-vue/dist
 	rm -rf poc/mock-api/node_modules
+	rm -rf packages/dart/morph_core/.dart_tool
