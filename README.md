@@ -75,7 +75,7 @@ See **[docs/README.md](docs/README.md)** for the full documentation index.
 | `packages/oauth2/` | `@morph/oauth2` | TokenLifecycle, TokenVault, OAuth helpers |
 | `packages/browser-storage/` | `@morph/browser-storage` | sessionStorage / localStorage adapters |
 | `packages/logger/` | `@morph/logger` | Structured logging and HTTP trace plugin |
-| `packages/dart/morph_core/` | `morph_core` | **Dart scaffold** (parity in progress); see [docs/dart-parity.md](docs/dart-parity.md) |
+| `packages/dart/morph_core/` | `morph_core` | **Dart** — config validation + indexes (parity with TS `validate.ts`); runtime/OAuth TBD — [docs/dart-parity.md](docs/dart-parity.md) |
 | `poc/ts-vue/` | | Vue 3 demo app |
 | `poc/keycloak/` | | Docker Keycloak realm + setup/test scripts |
 | `poc/mock-api/` | | Mock REST API (Express, validates JWT) |
