@@ -37,10 +37,13 @@ final List<String> morphLogLines = [];
 /// HTTP trace events collected via [MorphOptions.onHttpTrace]; consumed by the UI.
 final List<MorphHttpTraceEvent> morphHttpTraces = [];
 
-/// Shared log appender — consistent format used by both MorphOptions.onLog
-/// and ContextStoreOptions.onLog.
+/// Shared log appender — writes to browser console AND keeps the in-memory
+/// ring buffer (consumed by UI widgets).
+// ignore: avoid_print
 void _appendLog(String level, String message, [Object? error]) {
-  final entry = '[$level] $message${error != null ? ' — $error' : ''}';
+  final entry = '[morph][$level] $message${error != null ? ' — $error' : ''}';
+  // ignore: avoid_print
+  print(entry);
   morphLogLines.add(entry);
   if (morphLogLines.length > 300) morphLogLines.removeAt(0);
 }
