@@ -57,22 +57,32 @@ Future<MorphClient> initMorph() async {
 
   final logger = loggerPlugin(const LoggerPluginOptions(level: 'debug'));
 
-  // Persistent, boundary-scoped, optionally encrypted storage via morph_data_store.
-  // Falls back to in-memory storage if ContextStore initialization fails
-  // (e.g., Keychain unavailable in simulator without entitlements).
+  // Storage strategy:
+  // • Web: in-memory only.  ContextStore requires an active user identity
+  //   (Boundary.user) to build storage keys, but on web the OAuth redirect
+  //   reloads the page — so the identity is never set before the token write.
+  //   In-memory storage is correct here: completeOAuthCallback() runs in main()
+  //   before runApp(), so the token lives in the same JS heap the app reads from.
+  // • Native: ContextStore (persistent, boundary-scoped).  Deep-link callbacks
+  //   do NOT reload the process, so identity can be set before token storage.
   MorphPlugin storagePlugin;
-  try {
-    final contextStore = await ContextStore.create(ContextStoreOptions(
-      onRequestServerTime: (_, __) async => null,
-      timeServerUrls: [],
-      onLog: (level, message, [err, ctx]) =>
-          _appendLog(level.name, message, err),
-    ));
-    storagePlugin = contextStoreStoragePlugin(contextStore);
-    _appendLog('info', 'Storage: ContextStore (persistent)');
-  } catch (e) {
+  if (kIsWeb) {
     storagePlugin = memoryStorageMorphPlugin();
-    _appendLog('warn', 'Storage: fallback to in-memory — ContextStore init failed', e);
+    _appendLog('info', 'Storage: in-memory (web — ContextStore requires user identity)');
+  } else {
+    try {
+      final contextStore = await ContextStore.create(ContextStoreOptions(
+        onRequestServerTime: (_, __) async => null,
+        timeServerUrls: [],
+        onLog: (level, message, [err, ctx]) =>
+            _appendLog(level.name, message, err),
+      ));
+      storagePlugin = contextStoreStoragePlugin(contextStore);
+      _appendLog('info', 'Storage: ContextStore (persistent)');
+    } catch (e) {
+      storagePlugin = memoryStorageMorphPlugin();
+      _appendLog('warn', 'Storage: fallback to in-memory — ContextStore init failed', e);
+    }
   }
 
   final options = MorphOptions(
