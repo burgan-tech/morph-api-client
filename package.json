@@ -3,14 +3,14 @@
   "private": true,
   "description": "Morph API Client — TS SDK packages + PoC apps",
   "workspaces": [
-    "packages/*"
+    "packages/ts/*"
   ],
   "scripts": {
     "dev": "npm run dev --prefix poc/ts-vue -- --host 127.0.0.1",
-    "build:core": "npm run build --prefix packages/core",
-    "build:oauth2": "npm run build --prefix packages/oauth2",
-    "build:storage": "npm run build --prefix packages/browser-storage",
-    "build:logger": "npm run build --prefix packages/logger",
+    "build:core": "npm run build --prefix packages/ts/core",
+    "build:oauth2": "npm run build --prefix packages/ts/oauth2",
+    "build:storage": "npm run build --prefix packages/ts/browser-storage",
+    "build:logger": "npm run build --prefix packages/ts/logger",
     "build:packages": "npm run build:core && npm run build:oauth2 && npm run build:storage && npm run build:logger",
     "build:vue": "npm run build --prefix poc/ts-vue",
     "build": "npm run build:packages && npm run build:vue"

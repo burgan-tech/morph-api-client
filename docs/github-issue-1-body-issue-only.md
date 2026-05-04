@@ -20,8 +20,8 @@ Local run: `make dart-all` or `cd packages/dart/morph_core && dart pub get && da
 
 ## Later phases (sub-issues or checklist)
 
-- [ ] Strongly typed `MorphConfig` / `MorphOptions` aligned with `packages/core/src/types.ts`
-- [ ] Runtime + topological plugin install (parity with `packages/core/src/runtime.ts`)
+- [ ] Strongly typed `MorphConfig` / `MorphOptions` aligned with `packages/ts/core/src/types.ts`
+- [ ] Runtime + topological plugin install (parity with `packages/ts/core/src/runtime.ts`)
 - [ ] Port `@morph/oauth2` (new package e.g. `packages/dart/morph_oauth2` or `lib/src/oauth2/`)
 - [ ] Storage adapters (Flutter / VM) per `docs/platform-adapters.md`
 - [ ] Logger / HTTP trace hooks

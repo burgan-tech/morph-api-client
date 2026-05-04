@@ -1,6 +1,6 @@
 ## Goal
 
-Deliver a **Dart/Flutter Morph API Client** with **functional parity** to the existing TypeScript implementation (`packages/core`, `packages/oauth2`, `packages/browser-storage`, `packages/logger`): same **JSON configuration schema**, same **OAuth2 / multi-context token lifecycle**, **HTTP pipeline behavior** (auth resolution, retry, trace, 401 recovery), and **plugin composition** (`provides` / `requires`, `provideAuth` / `provideStorage`, logger chaining).
+Deliver a **Dart/Flutter Morph API Client** with **functional parity** to the existing TypeScript implementation (`packages/ts/core`, `packages/ts/oauth2`, `packages/ts/browser-storage`, `packages/ts/logger`): same **JSON configuration schema**, same **OAuth2 / multi-context token lifecycle**, **HTTP pipeline behavior** (auth resolution, retry, trace, 401 recovery), and **plugin composition** (`provides` / `requires`, `provideAuth` / `provideStorage`, logger chaining).
 
 Foundation: Phase 1 scaffold in `packages/dart/morph_core` ([#1](https://github.com/burgan-tech/morph-api-client/issues/1), base branch **`f/plugin`**).
 

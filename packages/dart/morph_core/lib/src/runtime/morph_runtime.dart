@@ -30,7 +30,7 @@ final class ParsedAuthProvider extends ParsedAuthRef {
   final String providerKey;
 }
 
-/// Parity: [`MorphRuntime`](/packages/core/src/runtime.ts).
+/// Parity: [`MorphRuntime`](/packages/ts/core/src/runtime.ts).
 final class MorphRuntime {
   MorphRuntime(
     this.resolved,

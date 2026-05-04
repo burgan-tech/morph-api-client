@@ -8,7 +8,7 @@ import 'package:morph_core/src/types/morph_types.dart';
 /// Accepts a [MorphConfig] or a JSON [Map] (converted via [MorphConfig.fromJson]).
 ///
 /// Throws [ConfigValidationError] when validation fails with the same error strings as
-/// [@morph/core](https://github.com/burgan-tech/morph-api-client/blob/f/plugin/packages/core/src/config/validate.ts).
+/// [@morph/core](https://github.com/burgan-tech/morph-api-client/blob/f/plugin/packages/ts/core/src/config/validate.ts).
 ResolvedMorphConfig validateAndIndexConfig(dynamic raw) {
   final MorphConfig config;
   if (raw is MorphConfig) {

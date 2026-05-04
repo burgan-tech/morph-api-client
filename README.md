@@ -71,10 +71,10 @@ See **[docs/README.md](docs/README.md)** for the full documentation index.
 
 | Path | Package | Role |
 |------|---------|------|
-| `packages/core/` | `@morph/core` | Types, config, HTTP pipeline, MorphClient, AuthHandle |
-| `packages/oauth2/` | `@morph/oauth2` | TokenLifecycle, TokenVault, OAuth helpers |
-| `packages/browser-storage/` | `@morph/browser-storage` | sessionStorage / localStorage adapters |
-| `packages/logger/` | `@morph/logger` | Structured logging and HTTP trace plugin |
+| `packages/ts/core/` | `@morph/core` | Types, config, HTTP pipeline, MorphClient, AuthHandle |
+| `packages/ts/oauth2/` | `@morph/oauth2` | TokenLifecycle, TokenVault, OAuth helpers |
+| `packages/ts/browser-storage/` | `@morph/browser-storage` | sessionStorage / localStorage adapters |
+| `packages/ts/logger/` | `@morph/logger` | Structured logging and HTTP trace plugin |
 | `packages/dart/morph_core/` | `morph_core` | **Dart** — config validation + indexes (parity with TS `validate.ts`); runtime/OAuth TBD — [docs/dart-parity.md](docs/dart-parity.md) |
 | `poc/ts-vue/` | | Vue 3 demo app |
 | `poc/keycloak/` | | Docker Keycloak realm + setup/test scripts |

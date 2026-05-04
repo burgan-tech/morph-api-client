@@ -1,7 +1,7 @@
 # Dart / Flutter SDK parity
 
-The TypeScript implementation is the reference (`packages/core`, `packages/oauth2`,
-`packages/browser-storage`, `packages/logger`). **Dart/Flutter parity** is tracked on
+The TypeScript implementation is the reference (`packages/ts/core`, `packages/ts/oauth2`,
+`packages/ts/browser-storage`, `packages/ts/logger`). **Dart/Flutter parity** is tracked on
 GitHub:
 - **[issue #1](https://github.com/burgan-tech/morph-api-client/issues/1)** — scaffold (`morph_core`, CI entry).
 - **[issue #3](https://github.com/burgan-tech/morph-api-client/issues/3)** — **full Dart/TS feature parity** (remaining gaps).

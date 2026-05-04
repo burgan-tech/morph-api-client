@@ -9,7 +9,7 @@ String _base64UrlDecode(String s) {
   return utf8.decode(base64Decode(b64));
 }
 
-/// Parity: [packages/core/src/util/jwt.ts](packages/core/src/util/jwt.ts).
+/// Parity: [packages/ts/core/src/util/jwt.ts](packages/ts/core/src/util/jwt.ts).
 JwtPayload decodeJwtPayload(String token) {
   final parts = token.split('.');
   if (parts.length < 2) throw FormatException('Invalid JWT format');

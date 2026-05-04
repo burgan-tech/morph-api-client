@@ -1,6 +1,6 @@
 import 'package:morph_core/src/types/morph_types.dart';
 
-/// Parity with TS [normalizeExchangeSources](packages/core/src/util/exchangeSources.ts).
+/// Parity with TS [normalizeExchangeSources](packages/ts/core/src/util/exchangeSources.ts).
 List<String> normalizeExchangeSourcesFromTokenBlock(TokenBlock token) {
   final ex = token.exchangeSource;
   if (ex == null) return [];

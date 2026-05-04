@@ -1,6 +1,6 @@
 final _varPattern = RegExp(r'\$([a-zA-Z_][a-zA-Z0-9_]*)');
 
-/// Replaces `$variable` tokens (parity: [packages/core/src/config/interpolate.ts]).
+/// Replaces `$variable` tokens (parity: [packages/ts/core/src/config/interpolate.ts]).
 String interpolateString(
   String template,
   Map<String, String> variables, [

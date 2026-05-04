@@ -2,7 +2,7 @@ import 'dart:developer' as dev;
 
 import 'package:morph_core/morph_core.dart';
 
-/// Same level names as TS [`LogLevel`](/packages/logger/src/index.ts).
+/// Same level names as TS [`LogLevel`](/packages/ts/logger/src/index.ts).
 typedef LogLevel = String;
 
 const Map<String, int> _levelOrder = {
@@ -12,7 +12,7 @@ const Map<String, int> _levelOrder = {
   'error': 3,
 };
 
-/// Parity [`LoggerPluginOptions`](/packages/logger/src/index.ts).
+/// Parity [`LoggerPluginOptions`](/packages/ts/logger/src/index.ts).
 final class LoggerPluginOptions {
   const LoggerPluginOptions({
     this.level = 'info',
@@ -59,7 +59,7 @@ MorphLogFn _defaultLog(String prefix, LogLevel minLevel) {
   };
 }
 
-/// Returns a [`MorphLogFn`] (TS [`createLogger`](/packages/logger/src/index.ts)).
+/// Returns a [`MorphLogFn`] (TS [`createLogger`](/packages/ts/logger/src/index.ts)).
 MorphLogFn createLogger([LoggerPluginOptions opts = const LoggerPluginOptions()]) {
   return opts.onLog ?? _defaultLog(opts.prefix, opts.level);
 }
