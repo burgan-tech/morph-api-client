@@ -188,7 +188,9 @@ Future<PocSimStepResult> _runFetch(
     PocSimFetchStep step, String mockApiBase) async {
   final url = '$mockApiBase${step.path}';
   try {
-    final res = await http.get(Uri.parse(url));
+    final res = await http
+        .get(Uri.parse(url))
+        .timeout(const Duration(seconds: 10));
     final expectedStatus = step.expectStatus;
     final ok = expectedStatus == null
         ? res.statusCode < 400
@@ -229,6 +231,8 @@ Future<PocSimStepResult> _runHost(
       body: res.body,
     );
   } catch (e) {
+    // PoC: morph_core/hostFetch errors are surfaced as opaque strings until
+    // typed error parity exists; keep heuristic aligned with Gemini review (#28).
     final msg = e.toString();
     final isAuth = msg.contains('401') ||
         msg.contains('403') ||

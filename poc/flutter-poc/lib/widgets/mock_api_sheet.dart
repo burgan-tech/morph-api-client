@@ -20,6 +20,7 @@ class MockApiSheet extends StatefulWidget {
 class _MockApiSheetState extends State<MockApiSheet> {
   bool _busy = false;
   String _message = '';
+  bool _lastIsError = false;
   Object? _lastBody;
 
   Future<void> _run(PocSimStep step) async {
@@ -32,9 +33,9 @@ class _MockApiSheetState extends State<MockApiSheet> {
     if (!mounted) return;
     setState(() {
       _busy = false;
-      _message = result.isError
-          ? '${result.status}${result.detail != null ? ' — ${result.detail}' : ''}'
-          : '${result.status}${result.detail != null ? ' — ${result.detail}' : ''}';
+      _lastIsError = result.isError;
+      _message =
+          '${result.status}${result.detail != null ? ' — ${result.detail}' : ''}';
       _lastBody = result.body;
     });
   }
@@ -122,9 +123,9 @@ class _MockApiSheetState extends State<MockApiSheet> {
                   _message,
                   style: TextStyle(
                     fontSize: 12,
-                    color: _message.startsWith('2')
-                        ? Colors.green.shade700
-                        : Colors.red.shade700,
+                    color: _lastIsError
+                        ? Colors.red.shade700
+                        : Colors.green.shade700,
                     fontFamily: 'monospace',
                   ),
                 ),

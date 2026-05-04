@@ -59,8 +59,8 @@ class _SimulationPanelState extends State<SimulationPanel> {
           (id) => step is PocSimHostStep && step.auth == id,
         );
         if (isSessionDead &&
-            detail.contains('invalid_grant') ||
-            detail.contains('Token is not active')) {
+            (detail.contains('invalid_grant') ||
+                detail.contains('Token is not active'))) {
           setState(() => _sessionDeadMessage = widget.cfg.sessionDeadMessage);
           break;
         }
@@ -84,15 +84,7 @@ class _SimulationPanelState extends State<SimulationPanel> {
           padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
           child: Row(
             children: [
-              Expanded(
-                child: Text(
-                  'Simulation',
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        color: colorScheme.primary,
-                      ),
-                ),
-              ),
-              // 404 probe toggle
+              // Title lives in HomeScreen (`_SectionHeader('Simulation')`).
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -108,7 +100,7 @@ class _SimulationPanelState extends State<SimulationPanel> {
                   ),
                 ],
               ),
-              const SizedBox(width: 8),
+              const Spacer(),
               FilledButton.icon(
                 icon: _running
                     ? const SizedBox(
