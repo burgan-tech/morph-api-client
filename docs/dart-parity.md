@@ -1,44 +1,57 @@
 # Dart / Flutter SDK parity
 
-The TypeScript implementation is the reference today (`packages/core`, `packages/oauth2`,
+The TypeScript implementation is the reference (`packages/core`, `packages/oauth2`,
 `packages/browser-storage`, `packages/logger`). **Dart/Flutter parity** is tracked on
 GitHub:
-- **[issue #1](https://github.com/burgan-tech/morph-api-client/issues/1)** — scaffold (`morph_core` stub, CI entry).
-- **[issue #3](https://github.com/burgan-tech/morph-api-client/issues/3)** — **full Dart/TS feature parity** (runtime, OAuth, storage, logger, pipelines).
+- **[issue #1](https://github.com/burgan-tech/morph-api-client/issues/1)** — scaffold (`morph_core`, CI entry).
+- **[issue #3](https://github.com/burgan-tech/morph-api-client/issues/3)** — **full Dart/TS feature parity** (remaining gaps).
 
 Base branch for work is **`f/plugin`** unless release policy changes.
 
-## Scaffold + config validation
+**Execution discipline:** milestones are shipped via the repo skill [morph-api-client-issue-pr-merge](../.cursor/skills/morph-api-client-issue-pr-merge/SKILL.md) (issue → PR with `Closes #n` → merge → update docs).
 
-The package [`packages/dart/morph_core`](../packages/dart/morph_core) is the first Dart package:
+## Current packages
 
-- **Public import:** `package:morph_core/morph_core.dart`
-- **Done:** **`validateAndIndexConfig`** parity with **`validate.ts`**; **`MorphClient.init`** validates config then **`UnimplementedError`** until runtime/oauth/http ([#3](https://github.com/burgan-tech/morph-api-client/issues/3)).
-- **Still TODO:** Typed `MorphConfig` / `MorphOptions` models (vs raw maps), Morph runtime / plugins.
+| Dart package | Role | Status |
+|-------------|------|--------|
+| [`packages/dart/morph_core`](../packages/dart/morph_core) | Config validation, `MorphClient`, `MorphRuntime`, `HostPipeline`, types | **Shipped** (facade parity with TS `MorphClient` / `HostClient` / `AuthHandle` tracked in codebase) |
+| [`packages/dart/morph_oauth2`](../packages/dart/morph_oauth2) | Token lifecycle, vault, `oauth2Plugin` | **Shipped** |
+| [`packages/dart/morph_storage`](../packages/dart/morph_storage) | In-memory storage plugin | **VM / tests** (`@morph/browser-storage` analogue for apps not yet ported) |
+| [`packages/dart/morph_logger`](../packages/dart/morph_logger) | Logger plugin + traces | **Shipped** |
+
+**Public import (core):** `package:morph_core/morph_core.dart`
+
+## Done vs next (milestone summary)
+
+| Milestone | Dart status |
+|-----------|--------------|
+| Config validation | **Done:** `validateAndIndexConfig` parity with `validate.ts`. |
+| `MorphClient.init` → runtime | **Done:** Builds `MorphRuntime` (plugins, HTTP pipeline), not a stub. |
+| Runtime + plugins | **Done:** topological install, auth/storage providers wired. |
+| HTTP host pipeline | **Done:** `HostPipeline.hostFetch`; `MorphClient.host()` exposes `HostClient`. |
+| Public client API | **Done:** TS-style `MorphClient` methods + `AuthHandle` for token helpers. |
+| OAuth2 plugin | **Done:** `@morph/oauth2` analogue in `morph_oauth2`. |
+| Logger | **Done:** `@morph/logger` analogue in `morph_logger`. |
+| Memory storage | **Done:** `morph_storage` module + plugin for tests/tools. |
+| OAuth return / redirect | **Done:** `oauthRedirectBase` on `MorphOptions`; `completeOAuthReturn` with conditional `dart:html` + optional `Uri? currentUri`. |
+| Typed `MorphConfig` DTOs | **Backlog:** hand-written or codegen from JSON boundary. |
+| Persistent / browser storage | **Backlog:** Flutter secure storage + web persistence (parity `@morph/browser-storage`). |
+| Sample app | **Backlog:** optional `poc/` consumer. |
 
 ## CI
 
-**.github/workflows/dart.yml** runs `dart analyze --fatal-infos` and `dart test` for this package.
+**.github/workflows/dart.yml** runs `dart analyze --fatal-infos` and `dart test` for `morph_core`, `morph_oauth2`, and `morph_logger`. **`morph_storage`** is intentionally omitted from the matrix while it stays test-only transitively; add when it has standalone coverage.
 
-## Design intent (unchanged from TS)
+## Design intent (aligned with TS)
 
 Per [architecture.md](architecture.md):
 
-
 - Same **JSON config** shape and validation behavior.
 - **Mirrored public API** with Dart idioms (`snake_case`, `Future` where async).
-- **Platform adapters** for storage and HTTP: see [platform-adapters.md](platform-adapters.md)
-  (Flutter secure storage, `dart:io` `HttpClient`, certificate pinning, etc.).
+- **Platform adapters** for storage and HTTP: [platform-adapters.md](platform-adapters.md).
 
-## Next milestones
+## Detailed backlog
 
-Detailed backlog and acceptance criteria: **[issue #3 — full Dart/TS parity](https://github.com/burgan-tech/morph-api-client/issues/3)**.
+Acceptance criteria and epic tracking: **[issue #3](https://github.com/burgan-tech/morph-api-client/issues/3)**.
 
-| Milestone | Scope |
-|-----------|--------|
-| Config validation | **Shipped:** `validateAndIndexConfig` + helpers (parity with `validate.ts`). **Next:** codegen or hand-written `MorphConfig` DTOs + `json` encoding |
-| Runtime + plugins | Topological plugin install, `provideAuth` / `provideStorage` equivalents |
-| OAuth2 + vault | Port `@morph/oauth2` token lifecycle (or new `packages/dart/morph_oauth2`) |
-| Storage | Secure / in-memory adapters for Flutter and VM |
-| Logger | Trace + `onLog` chaining like `@morph/logger` |
-| Sample | Optional Flutter or Dart VM sample under `poc/` |
+When starting work on a backlog row (persistent / browser storage, typed `MorphConfig`, `poc/` sample, adding `morph_storage` to CI), open a **dedicated GitHub issue** and drive it with the [morph-api-client-issue-pr-merge](../.cursor/skills/morph-api-client-issue-pr-merge/SKILL.md) workflow so each slice stays reviewable.
