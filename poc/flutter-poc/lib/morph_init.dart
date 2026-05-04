@@ -3,10 +3,11 @@ import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:morph_core/morph_core.dart';
+import 'package:morph_core_storage/morph_core_storage.dart';
+import 'package:morph_data_store/morph_data_store.dart';
 import 'package:morph_logger/create_logger.dart';
 import 'package:morph_logger/logger_plugin.dart';
 import 'package:morph_oauth2/morph_oauth2.dart';
-import 'package:morph_storage/memory_storage_plugin.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Deep-link URI scheme used by the Flutter PoC.
@@ -30,15 +31,23 @@ Future<MorphClient> initMorph() async {
 
   final logger = loggerPlugin(const LoggerPluginOptions(level: 'debug'));
 
-  final storage = memoryStorageMorphPlugin();
+  // Persistent, boundary-scoped, encrypted storage via morph_data_store.
+  final contextStore = await ContextStore.create(ContextStoreOptions(
+    onRequestServerTime: (_, __) async => null,
+    timeServerUrls: [],
+    onLog: (level, message, [err, ctx]) {
+      morphLogLines.add('[${level.name}] $message${err != null ? ' — $err' : ''}');
+      if (morphLogLines.length > 300) morphLogLines.removeAt(0);
+    },
+  ));
 
   final options = MorphOptions(
     plugins: [
       logger,
+      contextStoreStoragePlugin(contextStore),
       oauth2Plugin(
         OAuth2PluginOptions(
           logger: logger,
-          storage: storage,
           variables: variables,
           autoAcquireNonInteractive: true,
         ),
