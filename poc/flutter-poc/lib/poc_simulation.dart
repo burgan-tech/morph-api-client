@@ -209,8 +209,10 @@ Future<PocSimStepResult> runPocSimStep(
 }
 
 Future<PocSimStepResult> _runFetch(
-    PocSimFetchStep step, String mockApiBase,
-    [http.Client? clientOverride]) async {
+  PocSimFetchStep step,
+  String mockApiBase, [
+  http.Client? clientOverride,
+]) async {
   final url = '$mockApiBase${step.path}';
   final client = clientOverride ?? http.Client();
   final ownsClient = clientOverride == null;
