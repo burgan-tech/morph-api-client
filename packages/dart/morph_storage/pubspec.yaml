@@ -1,5 +1,8 @@
 name: morph_storage
-description: Storage adapters for Morph (Dart parity with @morph/browser-storage).
+description: >
+  In-memory StorageProvider and MorphPlugin for Morph (tests/VM). Browser
+  session/local storage lives in @morph/browser-storage (TS); production Flutter
+  apps typically use morph-data-store via morph_core_storage.
 publish_to: "none"
 version: 0.1.0
 
