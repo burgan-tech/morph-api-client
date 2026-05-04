@@ -74,7 +74,7 @@
       "protocol": "openid-connect",
       "fullScopeAllowed": true,
       "attributes": {
-        "access.token.lifespan": "15"
+        "access.token.lifespan": "30"
       }
     },
     {
@@ -111,7 +111,7 @@
         "http://localhost:4200"
       ],
       "attributes": {
-        "access.token.lifespan": "30",
+        "access.token.lifespan": "60",
         "client.session.idle.timeout": "60",
         "oauth2.token.exchange.grant.enabled": "true"
       },
@@ -145,7 +145,7 @@
       "protocol": "openid-connect",
       "fullScopeAllowed": true,
       "attributes": {
-        "access.token.lifespan": "20",
+        "access.token.lifespan": "40",
         "client.session.idle.timeout": "60",
         "oauth2.token.exchange.grant.enabled": "true"
       }
@@ -160,5 +160,8 @@
       "protocol": "openid-connect",
       "fullScopeAllowed": true
     }
-  ]
+  ],
+  "accessCodeLifespan": 300,
+  "accessCodeLifespanLogin": 300,
+  "accessCodeLifespanUserAction": 300
 }

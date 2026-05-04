@@ -2,12 +2,16 @@
 # ---------------------------------------------------------------------------
 # run_web.sh — start all PoC backends and the Flutter web app on Chrome
 #
-# Usage:  ./run_web.sh [--no-keycloak] [--no-mock-api]
+# Usage:  ./run_web.sh [--no-keycloak] [--no-mock-api] [--debug]
 #
 # Ports:
 #   8080  — Keycloak (Docker)
 #   3000  — Mock API (Node)
 #   4200  — Flutter web app (Chrome)
+#
+# By default runs in --profile mode (single bundled JS, loads in ~2s).
+# Pass --debug for hot-reload at the cost of a 30-60s load on each page
+# reload (596 separate JS files), which can cause the OAuth code to expire.
 # ---------------------------------------------------------------------------
 set -euo pipefail
 
@@ -18,10 +22,12 @@ FLUTTER_PORT=4200
 # --- flags ---
 START_KEYCLOAK=true
 START_MOCK_API=true
+FLUTTER_MODE="--profile"
 for arg in "$@"; do
   case "$arg" in
     --no-keycloak)  START_KEYCLOAK=false ;;
     --no-mock-api)  START_MOCK_API=false ;;
+    --debug)        FLUTTER_MODE="" ;;
   esac
 done
 
@@ -77,10 +83,18 @@ fi
 echo ""
 echo "▶ Starting Flutter web app on http://localhost:$FLUTTER_PORT ..."
 echo "  OAuth callback: http://localhost:$FLUTTER_PORT/"
-echo ""
 
 cd "$SCRIPT_DIR"
+if [ -n "$FLUTTER_MODE" ]; then
+  echo "  Mode: profile (fast load, no hot-reload — use --debug for hot-reload)"
+else
+  echo "  Mode: debug (hot-reload enabled, but page reloads are slow ~30-60s)"
+fi
+echo ""
+
+# shellcheck disable=SC2086
 flutter run \
+  $FLUTTER_MODE \
   --device-id chrome \
   --web-port "$FLUTTER_PORT" \
   --web-browser-flag "--disable-web-security" \
