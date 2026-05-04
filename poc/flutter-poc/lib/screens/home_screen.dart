@@ -126,11 +126,10 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final url = _morph.getAuthorizationUrl(authId);
       if (kIsWeb) {
-        // On web the redirect is handled by Uri.base detection in main.dart
-        // ignore: avoid_web_libraries_in_flutter
-        // Using launchUrl in external mode would open a new tab; instead
-        // navigate the current window so the callback redirects back properly.
-        await launchUrl(Uri.parse(url), mode: LaunchMode.platformDefault);
+        // On web: navigate the CURRENT tab so Keycloak redirects back here
+        // with ?code=...&state=... — handled in main() before runApp.
+        // webOnlyWindowName: '_self' replaces the current tab instead of opening a new one.
+        await launchUrl(Uri.parse(url), webOnlyWindowName: '_self');
       } else {
         if (!await launchUrl(Uri.parse(url),
             mode: LaunchMode.externalApplication)) {
