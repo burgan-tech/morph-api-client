@@ -1,16 +1,19 @@
-import 'package:morph_core/morph_core.dart';
+import 'config/validate_config.dart';
+import 'runtime/morph_runtime.dart';
+import 'types/morph_surface.dart';
 
 /// Public facade mirroring [`MorphClient`] from `@morph/core`.
-class MorphClient {
-  MorphClient._();
+final class MorphClient {
+  MorphClient._(this.runtime);
+
+  /// Resolved config + plugins + HTTP pipeline (parity [`MorphRuntime`]).
+  final MorphRuntime runtime;
 
   static MorphClient init(dynamic config, MorphOptions options) {
-    validateAndIndexConfig(config);
-    throw UnimplementedError(
-      'MorphClient runtime bootstrap is not wired yet. Use validateAndIndexConfig '
-      '(typed [MorphConfig] + plugins) pending full integration.',
-    );
+    final resolved = validateAndIndexConfig(config);
+    final vars = Map<String, String>.from(options.variables ?? const {});
+    return MorphClient._(MorphRuntime(resolved, options, vars));
   }
 
-  void dispose() {}
+  void dispose() => runtime.dispose();
 }

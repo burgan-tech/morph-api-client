@@ -1,40 +1,7 @@
 import 'package:morph_core/morph_core.dart';
 import 'package:test/test.dart';
 
-/// Minimal Morph JSON passing [validateAndIndexConfig] (same rules as `@morph/core`).
-Map<String, dynamic> minimalValidConfig() => {
-      'providers': [
-        {
-          'key': 'p',
-          'type': 'oauth2',
-          'baseUrl': 'https://issuer.example',
-          'contexts': [
-            {
-              'key': 'c',
-              'token': {'endpoint': '/token'},
-              'tokenTypes': {
-                'access': {
-                  'expiryPolicy': 'token',
-                  'storage': {
-                    'scope': 's',
-                    'type': 'memory',
-                    'protection': 'secure',
-                    'key': 'access-key',
-                  },
-                },
-              },
-            },
-          ],
-        },
-      ],
-      'hosts': [
-        {
-          'key': 'api',
-          'baseUrl': 'https://api.example',
-          'allowedAuth': ['p/c'],
-        },
-      ],
-    };
+import 'minimal_morph_config.dart';
 
 void main() {
   group('validateAndIndexConfig', () {
@@ -63,10 +30,10 @@ void main() {
   });
 
   group('MorphClient.init', () {
-    test('runs validation then fails with UnimplementedError on valid config', () {
+    test('throws when plugins list is empty (no auth/storage)', () {
       expect(
         () => MorphClient.init(minimalValidConfig(), MorphOptions(plugins: const [])),
-        throwsA(isA<UnimplementedError>()),
+        throwsA(isA<StateError>().having((e) => e.toString(), 'txt', contains('provideAuth'))),
       );
     });
   });

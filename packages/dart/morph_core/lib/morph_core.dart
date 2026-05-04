@@ -3,6 +3,11 @@ library;
 
 export 'src/morph_client.dart';
 
+export 'src/runtime/morph_runtime.dart';
+export 'src/runtime/plugin_install.dart';
+
+export 'src/http/host_pipeline.dart';
+
 export 'src/config/ctx_ref.dart';
 export 'src/config/exchange_sources.dart';
 export 'src/config/interpolate_config.dart';
