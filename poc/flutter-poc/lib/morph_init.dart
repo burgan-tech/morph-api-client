@@ -3,6 +3,8 @@ import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:morph_core/morph_core.dart';
+import 'package:morph_core_storage/morph_core_storage.dart';
+import 'package:morph_data_store/morph_data_store.dart';
 import 'package:morph_logger/create_logger.dart';
 import 'package:morph_logger/logger_plugin.dart';
 import 'package:morph_oauth2/morph_oauth2.dart';
@@ -15,11 +17,19 @@ const String kOAuthCallbackUri = 'morphpoc://oauth/callback';
 /// Prefix for SharedPreferences keys.
 const String _kPrefsPrefix = 'morph-poc:';
 
-/// Log events collected from [MorphOptions.onLog]; consumed by the UI.
+/// Log events collected from SDK; consumed by the UI.
 final List<String> morphLogLines = [];
 
-/// HTTP trace events collected from [MorphOptions.onHttpTrace]; consumed by the UI.
+/// HTTP trace events collected via [MorphOptions.onHttpTrace]; consumed by the UI.
 final List<MorphHttpTraceEvent> morphHttpTraces = [];
+
+/// Shared log appender — consistent format used by both MorphOptions.onLog
+/// and ContextStoreOptions.onLog.
+void _appendLog(String level, String message, [Object? error]) {
+  final entry = '[$level] $message${error != null ? ' — $error' : ''}';
+  morphLogLines.add(entry);
+  if (morphLogLines.length > 300) morphLogLines.removeAt(0);
+}
 
 /// Initializes and returns the [MorphClient] singleton.
 ///
@@ -30,26 +40,39 @@ Future<MorphClient> initMorph() async {
 
   final logger = loggerPlugin(const LoggerPluginOptions(level: 'debug'));
 
-  final storage = memoryStorageMorphPlugin();
+  // Persistent, boundary-scoped, optionally encrypted storage via morph_data_store.
+  // Falls back to in-memory storage if ContextStore initialization fails
+  // (e.g., Keychain unavailable in simulator without entitlements).
+  MorphPlugin storagePlugin;
+  try {
+    final contextStore = await ContextStore.create(ContextStoreOptions(
+      onRequestServerTime: (_, __) async => null,
+      timeServerUrls: [],
+      onLog: (level, message, [err, ctx]) =>
+          _appendLog(level.name, message, err),
+    ));
+    storagePlugin = contextStoreStoragePlugin(contextStore);
+    _appendLog('info', 'Storage: ContextStore (persistent)');
+  } catch (e) {
+    storagePlugin = memoryStorageMorphPlugin();
+    _appendLog('warn', 'Storage: fallback to in-memory — ContextStore init failed', e);
+  }
 
   final options = MorphOptions(
     plugins: [
       logger,
+      storagePlugin,
       oauth2Plugin(
         OAuth2PluginOptions(
           logger: logger,
-          storage: storage,
           variables: variables,
           autoAcquireNonInteractive: true,
         ),
       ),
     ],
     variables: variables,
-    onLog: (level, message, [error, context]) {
-      final entry = '[$level] $message${error != null ? ' — $error' : ''}';
-      morphLogLines.add(entry);
-      if (morphLogLines.length > 300) morphLogLines.removeAt(0);
-    },
+    onLog: (level, message, [error, context]) =>
+        _appendLog(level, message, error),
     onHttpTrace: (event) {
       morphHttpTraces.insert(0, event);
       if (morphHttpTraces.length > 100) morphHttpTraces.removeLast();
@@ -111,7 +134,6 @@ Future<Map<String, String>> _buildVariables() async {
 String _readOrCreate(SharedPreferences prefs, String key) {
   var value = prefs.getString(key);
   if (value == null || value.isEmpty) {
-    // Pseudo-UUID using DateTime + hashCode — sufficient for a PoC.
     value =
         '${DateTime.now().millisecondsSinceEpoch}-${key.hashCode.abs()}';
     prefs.setString(key, value);

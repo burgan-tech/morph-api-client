@@ -35,7 +35,7 @@ Base branch for work is **`f/plugin`** unless release policy changes.
 | Memory storage | **Done:** `morph_storage` module + plugin for tests/tools. |
 | OAuth return / redirect | **Done:** `oauthRedirectBase` on `MorphOptions`; `completeOAuthReturn` with conditional `dart:html` + optional `Uri? currentUri`. |
 | Typed `MorphConfig` DTOs | **Backlog:** hand-written or codegen from JSON boundary. |
-| Persistent / browser storage | **Backlog:** Flutter secure storage + web persistence (parity `@morph/browser-storage`). |
+| Persistent / browser storage | **Done:** `morph_core_storage` adapter in `morph-data-store` bridges `StorageProvider` → `IContextStore` (Keychain/KeyStore); `poc/flutter-poc` switched from in-memory to persistent storage. |
 | Sample app | **Done:** `poc/flutter-poc` Flutter app — token status, OAuth login, mock-API call, HTTP trace log (closes #24). |
 
 ## CI

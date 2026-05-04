@@ -20,6 +20,10 @@ dependencies:
     path: ../../packages/dart/morph_logger
   morph_storage:
     path: ../../packages/dart/morph_storage
+  morph_core_storage:
+    path: ../../../morph-data-store/adapters/dart-morph-core-storage
+  morph_data_store:
+    path: ../../../morph-data-store/core/dart-morph-data-store
   url_launcher: ^6.3.0
   app_links: ^6.4.0
   shared_preferences: ^2.3.0
