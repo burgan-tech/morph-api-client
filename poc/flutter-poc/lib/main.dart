@@ -13,13 +13,33 @@ void main() async {
 
   final morph = await initMorph();
 
-  runApp(MorphPocApp(morph: morph));
+  // On web, handle OAuth callback BEFORE runApp so tokens are stored before
+  // HomeScreen reads token status. The callback URL looks like:
+  //   http://localhost:4200/?code=XXX&state=YYY
+  String? oauthMessage;
+  if (kIsWeb) {
+    final uri = Uri.base;
+    final code = uri.queryParameters['code'];
+    final state = uri.queryParameters['state'];
+    if (code != null && state != null) {
+      try {
+        final result = await morph.completeOAuthCallback(code: code, state: state);
+        oauthMessage =
+            'OAuth complete: ${result.status}${result.message != null ? ' — ${result.message}' : ''}';
+      } catch (e) {
+        oauthMessage = 'OAuth callback error: $e';
+      }
+    }
+  }
+
+  runApp(MorphPocApp(morph: morph, initialMessage: oauthMessage));
 }
 
 class MorphPocApp extends StatefulWidget {
-  const MorphPocApp({super.key, required this.morph});
+  const MorphPocApp({super.key, required this.morph, this.initialMessage});
 
   final MorphClient morph;
+  final String? initialMessage;
 
   @override
   State<MorphPocApp> createState() => _MorphPocAppState();
@@ -33,29 +53,17 @@ class _MorphPocAppState extends State<MorphPocApp> {
   @override
   void initState() {
     super.initState();
-    if (kIsWeb) {
-      // On web, Keycloak redirects back to the app URL with code+state params.
-      // Check Uri.base once on startup instead of using a custom scheme listener.
-      _handleWebOAuthCallbackIfPresent();
-    } else {
+    // Carry the OAuth result message from main() into the UI.
+    _pendingOAuthMessage = widget.initialMessage;
+    if (!kIsWeb) {
       _appLinks = AppLinks();
       _linkSubscription = _appLinks!.uriLinkStream.listen(_handleIncomingUri);
     }
   }
 
-  /// Detects an OAuth callback redirect on web by inspecting [Uri.base].
-  void _handleWebOAuthCallbackIfPresent() {
-    final uri = Uri.base;
-    if (uri.queryParameters.containsKey('code') &&
-        uri.queryParameters.containsKey('state')) {
-      _handleIncomingUri(uri);
-    }
-  }
-
+  /// Mobile/desktop: handles deep-link OAuth callbacks via app_links.
   Future<void> _handleIncomingUri(Uri uri) async {
-    final uriStr = uri.toString();
-    final expectedPrefix = kIsWeb ? kWebOAuthCallbackUri : kOAuthCallbackUri;
-    if (!uriStr.startsWith(expectedPrefix)) return;
+    if (!uri.toString().startsWith(kOAuthCallbackUri)) return;
 
     final code = uri.queryParameters['code'];
     final state = uri.queryParameters['state'];
