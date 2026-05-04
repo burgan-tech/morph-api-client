@@ -36,7 +36,7 @@ Base branch for work is **`f/plugin`** unless release policy changes.
 | OAuth return / redirect | **Done:** `oauthRedirectBase` on `MorphOptions`; `completeOAuthReturn` with conditional `dart:html` + optional `Uri? currentUri`. |
 | Typed `MorphConfig` DTOs | **Backlog:** hand-written or codegen from JSON boundary. |
 | Persistent / browser storage | **Backlog:** Flutter secure storage + web persistence (parity `@morph/browser-storage`). |
-| Sample app | **Backlog:** optional `poc/` consumer. |
+| Sample app | **Done:** `poc/flutter-poc` Flutter app — token status, OAuth login, mock-API call, HTTP trace log (closes #24). |
 
 ## CI
 

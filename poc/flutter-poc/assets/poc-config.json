@@ -1,0 +1,321 @@
+{
+  "providers": [
+    {
+      "key": "morph-auth",
+      "type": "oauth2",
+      "baseUrl": "$keycloakOidcBase",
+      "authorizationBrowserBaseUrl": "$keycloakBrowserBaseUrl",
+      "tokenHttpBaseUrl": "$pocKeycloakTokenHttpBase",
+
+      "networkPolicy": {
+        "timeout": "10s",
+        "retry": {
+          "count": 2,
+          "delay": "200ms"
+        }
+      },
+
+      "headers": {
+        "X-Device-Id": "$deviceId",
+        "X-Installation-Id": "$installationId"
+      },
+
+      "contexts": [
+        {
+          "key": "device",
+
+          "clientId": "morph-device",
+          "clientSecret": "$deviceClientSecret",
+          "clientAuth": "private_key_jwt",
+
+          "token": {
+            "endpoint": "/token"
+          },
+
+          "recoveryPolicy": {
+            "onUnauthorized": "delegate",
+            "onRefreshFail": "clear"
+          },
+
+          "delegateMetadata": {
+            "workflow": "device-auth",
+            "grantHint": "client_credentials",
+            "interaction": "non-interactive"
+          },
+
+          "refreshPolicy": {
+            "refreshBeforeExpiry": "5s"
+          },
+
+          "tokenTypes": {
+            "access": {
+              "header": {
+                "name": "Authorization",
+                "scheme": "Bearer"
+              },
+              "expiryPolicy": "token",
+              "storage": {
+                "scope": "device",
+                "type": "persistent",
+                "protection": "secure",
+                "key": "device.access"
+              }
+            }
+          }
+        },
+
+        {
+          "key": "2fa",
+
+          "clientId": "morph-login",
+          "clientSecret": "$loginClientSecret",
+          "audience": "morph-session",
+
+          "identity": {
+            "subject": "sub",
+            "actor": "sub"
+          },
+
+          "authorization": {
+            "endpoint": "/auth",
+            "redirectUri": "$oauthCallbackUri"
+          },
+
+          "token": {
+            "endpoint": "/token"
+          },
+
+          "logout": {
+            "endpoint": "/logout"
+          },
+
+          "scopes": ["openid", "profile", "email"],
+
+          "sessionPolicy": {
+            "logoutOnBackgroundAfter": "1m",
+            "logoutOnInactivityAfter": "5m"
+          },
+
+          "refreshPolicy": {
+            "strategy": "rotating",
+            "refreshBeforeExpiry": "10s"
+          },
+
+          "recoveryPolicy": {
+            "onUnauthorized": "refresh",
+            "onRefreshFail": "delegate"
+          },
+
+          "delegateMetadata": {
+            "workflow": "login",
+            "grantHint": "authorization_code",
+            "interaction": "interactive"
+          },
+
+          "tokenTypes": {
+            "access": {
+              "header": {
+                "name": "Authorization",
+                "scheme": "Bearer"
+              },
+              "expiryPolicy": "token",
+              "storage": {
+                "scope": "session",
+                "type": "memory",
+                "protection": "secure",
+                "key": "2fa.access.$subject"
+              }
+            },
+            "refresh": {
+              "expiryPolicy": "token",
+              "storage": {
+                "scope": "session",
+                "type": "memory",
+                "protection": "secure",
+                "key": "2fa.refresh.$subject"
+              }
+            }
+          }
+        },
+
+        {
+          "key": "1fa",
+
+          "clientId": "morph-session",
+          "clientSecret": "$sessionClientSecret",
+
+          "identity": {
+            "subject": "sub",
+            "actor": "sub"
+          },
+
+          "token": {
+            "endpoint": "/token",
+            "exchangeEndpoint": "/token",
+            "exchangeSource": ["morph-auth/2fa"]
+          },
+
+          "refreshPolicy": {
+            "strategy": "rotating",
+            "refreshBeforeExpiry": "8s"
+          },
+
+          "recoveryPolicy": {
+            "onUnauthorized": "refresh",
+            "onRefreshFail": "delegate"
+          },
+
+          "delegateMetadata": {
+            "workflow": "token-exchange",
+            "grantHint": "token_exchange",
+            "interaction": "interactive"
+          },
+
+          "tokenTypes": {
+            "access": {
+              "header": {
+                "name": "Authorization",
+                "scheme": "Bearer"
+              },
+              "expiryPolicy": "token",
+              "maxTtl": "30d",
+              "storage": {
+                "scope": "user",
+                "type": "persistent",
+                "protection": "encrypted",
+                "key": "1fa.access.$subject"
+              }
+            },
+            "refresh": {
+              "expiryPolicy": "token",
+              "maxTtl": "30d",
+              "storage": {
+                "scope": "user",
+                "type": "persistent",
+                "protection": "encrypted",
+                "key": "1fa.refresh.$subject"
+              }
+            }
+          }
+        }
+      ]
+    },
+
+    {
+      "key": "google-auth",
+      "type": "oauth2",
+      "baseUrl": "https://accounts.google.com",
+      "tokenHttpBaseUrl": "$pocGoogleTokenHttpBase",
+
+      "headers": {
+        "X-Device-Id": "$deviceId",
+        "X-Installation-Id": "$installationId"
+      },
+
+      "contexts": [
+        {
+          "key": "google",
+
+          "clientId": "$googleClientId",
+          "clientSecret": "$googleClientSecret",
+
+          "authorization": {
+            "endpoint": "https://accounts.google.com/o/oauth2/v2/auth",
+            "redirectUri": "$oauthCallbackUri",
+            "responseType": "code",
+            "extraParams": {
+              "access_type": "offline",
+              "prompt": "consent"
+            }
+          },
+
+          "token": {
+            "endpoint": "$pocGoogleTokenEndpoint"
+          },
+
+          "scopes": [
+            "openid",
+            "profile",
+            "email"
+          ],
+
+          "pkce": {
+            "codeChallengeMethod": "S256"
+          },
+
+          "networkPolicy": {
+            "timeout": "15s",
+            "retry": {
+              "count": 1,
+              "delay": "300ms"
+            }
+          },
+
+          "recoveryPolicy": {
+            "onUnauthorized": "delegate",
+            "onRefreshFail": "clear"
+          },
+
+          "delegateMetadata": {
+            "workflow": "google-login",
+            "grantHint": "authorization_code",
+            "interaction": "redirect"
+          },
+
+          "tokenTypes": {
+            "access": {
+              "format": "opaque",
+              "header": {
+                "name": "Authorization",
+                "scheme": "Bearer"
+              },
+              "expiryPolicy": "token",
+              "storage": {
+                "scope": "session",
+                "type": "memory",
+                "protection": "secure",
+                "key": "google.access"
+              }
+            },
+            "refresh": {
+              "format": "opaque",
+              "expiryPolicy": "token",
+              "storage": {
+                "scope": "session",
+                "type": "memory",
+                "protection": "secure",
+                "key": "google.refresh"
+              }
+            }
+          }
+        }
+      ]
+    }
+  ],
+
+  "hosts": [
+    {
+      "key": "main-api",
+      "baseUrl": "http://localhost:3000",
+      "headers": {
+        "X-Device-Id": "$deviceId",
+        "X-Installation-Id": "$installationId"
+      },
+      "allowedAuth": [
+        "morph-auth/device",
+        "morph-auth/1fa",
+        "morph-auth/2fa",
+        "google-auth/google"
+      ]
+    },
+    {
+      "key": "google-api",
+      "baseUrl": "https://www.googleapis.com",
+      "allowedAuth": [
+        "google-auth/google"
+      ]
+    }
+  ],
+
+  "rootCallbackAuthId": "morph-auth/2fa"
+}
