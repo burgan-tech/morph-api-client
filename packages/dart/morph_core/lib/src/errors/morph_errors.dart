@@ -1,4 +1,4 @@
-// Core errors mirroring `@morph/core` packages/core/src/errors.ts.
+// Core errors mirroring `@morph/core` packages/ts/core/src/errors.ts.
 
 final class ConfigValidationError implements Exception {
   ConfigValidationError(this.errors) : assert(errors.isNotEmpty);

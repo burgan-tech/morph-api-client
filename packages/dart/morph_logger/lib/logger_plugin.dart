@@ -2,7 +2,7 @@ import 'package:morph_core/morph_core.dart';
 
 import 'create_logger.dart';
 
-/// Parity [`loggerPlugin`](/packages/logger/src/index.ts).
+/// Parity [`loggerPlugin`](/packages/ts/logger/src/index.ts).
 MorphPlugin loggerPlugin([LoggerPluginOptions? opts]) =>
     _LoggerMorphPlugin(opts ?? const LoggerPluginOptions());
 

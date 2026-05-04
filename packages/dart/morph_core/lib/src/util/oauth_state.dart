@@ -4,7 +4,7 @@ import 'dart:math';
 const _prefix = 'morph1.';
 
 /// Encodes [authId] into OAuth state (URL-safe base64 payload).
-/// Parity: [packages/core/src/util/oauthState.ts](packages/core/src/util/oauthState.ts).
+/// Parity: [packages/ts/core/src/util/oauthState.ts](packages/ts/core/src/util/oauthState.ts).
 String encodeOAuthState(String authId) {
   final n = '${DateTime.now().microsecondsSinceEpoch}-${Random.secure().nextInt(4294967295)}';
   final payload = jsonEncode({'a': authId, 'n': n});

@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:morph_core/morph_core.dart';
 
-/// Path manifest JSON stored beside token blobs (`packages/oauth2/src/tokens/tokenVault.ts`).
+/// Path manifest JSON stored beside token blobs (`packages/ts/oauth2/src/tokens/tokenVault.ts`).
 final class PathManifest {
   PathManifest({required this.accessKey, this.refreshKey});
   factory PathManifest.fromJson(Map<String, dynamic> m) =>

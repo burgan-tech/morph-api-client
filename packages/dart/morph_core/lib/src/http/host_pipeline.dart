@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:morph_core/morph_core.dart';
 
-/// HTTP host pipeline parity with `packages/core/src/http/hostPipeline.ts`.
+/// HTTP host pipeline parity with `packages/ts/core/src/http/hostPipeline.ts`.
 final class HostPipeline {
   HostPipeline({
     required ResolvedMorphConfig resolved,

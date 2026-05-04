@@ -13,7 +13,7 @@ final class MorphOAuthCallbacksPartial {
   final void Function(String authId, TokenSet? tokens)? onTokenChange;
 }
 
-/// Callbacks matching TS [`MorphCallbacks`](../packages/core/src/types.ts).
+/// Callbacks matching TS [`MorphCallbacks`](/packages/ts/core/src/types.ts).
 final class MorphOAuthCallbacks {
   MorphOAuthCallbacks({
     required this.onAuthRequired,

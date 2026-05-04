@@ -2,7 +2,7 @@ import '../runtime/morph_runtime.dart';
 import '../types/morph_surface.dart';
 import '../types/morph_types.dart';
 
-/// Parity: [`HostClient`](packages/core/src/client/HostClient.ts).
+/// Parity: [`HostClient`](packages/ts/core/src/client/HostClient.ts).
 final class HostClient {
   HostClient(this._rt, this.host);
 

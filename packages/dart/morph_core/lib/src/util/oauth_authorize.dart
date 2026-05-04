@@ -1,7 +1,7 @@
 import 'package:morph_core/src/util/resolve_endpoint.dart';
 
 /// Builds an OAuth 2.0 authorization redirect URL.
-/// Parity: [packages/core/src/util/oauthAuthorize.ts](packages/core/src/util/oauthAuthorize.ts).
+/// Parity: [packages/ts/core/src/util/oauthAuthorize.ts](packages/ts/core/src/util/oauthAuthorize.ts).
 String buildOAuth2AuthorizationUrl({
   required String baseUrl,
   required String authorizationPath,

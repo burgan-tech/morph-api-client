@@ -7,7 +7,7 @@ const Map<String, double> _unitMs = {
 };
 
 /// Parses strings like `"200ms"`, `"10s"`, `"30d"` into milliseconds.
-/// Parity: [packages/core/src/util/duration.ts](packages/core/src/util/duration.ts).
+/// Parity: [packages/ts/core/src/util/duration.ts](packages/ts/core/src/util/duration.ts).
 int parseDurationMs(String? input, [int? fallbackMs]) {
   if (input == null || input.trim().isEmpty) {
     if (fallbackMs != null) return fallbackMs;

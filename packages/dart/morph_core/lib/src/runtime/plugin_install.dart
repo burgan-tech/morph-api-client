@@ -2,7 +2,7 @@ import '../config/resolved_morph_config.dart';
 import '../types/morph_surface.dart';
 
 /// Topological install order for plugins whose [MorphPlugin.requires] reference
-/// [MorphPlugin.provides] from other plugins (parity `packages/core/src/runtime.ts`).
+/// [MorphPlugin.provides] from other plugins (parity `packages/ts/core/src/runtime.ts`).
 List<MorphPlugin> topoSortPlugins(List<MorphPlugin> plugins) {
   if (plugins.isEmpty) return [];
 

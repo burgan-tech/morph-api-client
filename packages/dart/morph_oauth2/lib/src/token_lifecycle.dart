@@ -27,7 +27,7 @@ const _grantTokenExchange =
     'urn:ietf:params:oauth:grant-type:token-exchange';
 const _accessTokenSubjectType = 'urn:ietf:params:oauth:token-type:access_token';
 
-/// Implements [`AuthPlugin`] — parity `packages/oauth2/src/tokens/tokenLifecycle.ts`.
+/// Implements [`AuthPlugin`] — parity `packages/ts/oauth2/src/tokens/tokenLifecycle.ts`.
 final class TokenLifecycle implements AuthPlugin {
   TokenLifecycle(
     this.resolved,

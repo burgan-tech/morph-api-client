@@ -6,7 +6,7 @@ Dart port of **`@morph/core`** (Morph API Client). See
 ## Implemented (vs TypeScript)
 
 - **`validateAndIndexConfig`** — same validation rules and indexes as
-  `packages/core/src/config/validate.ts` (throws **`ConfigValidationError`** with
+  `packages/ts/core/src/config/validate.ts` (throws **`ConfigValidationError`** with
   aggregated messages).
 - **`normalizeExchangeSources`**, **`listAuthIdsForProvider`** — parity with TS helpers.
 - **`MorphClient.init`** — runs config validation, then throws **`UnimplementedError`**

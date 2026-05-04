@@ -1,6 +1,6 @@
 import 'package:morph_core/src/config/resolved_morph_config.dart';
 
-/// Parity with TS [listAuthIdsForProvider](packages/core/src/config/validate.ts).
+/// Parity with TS [listAuthIdsForProvider](packages/ts/core/src/config/validate.ts).
 List<String> listAuthIdsForProvider(String providerKey, ResolvedMorphConfig resolved) {
   final ctxs = resolved.contextsByProvider[providerKey] ?? [];
   final pIndex = resolved.config.providers.indexWhere((x) => x.key == providerKey);

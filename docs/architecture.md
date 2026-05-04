@@ -156,29 +156,35 @@ The `allowedAuth` list enables **request-time validation**: if a request through
 ```
 morph-api-client/
 ├── packages/
-│   ├── core/                        # @morph/core — types, config, HTTP pipeline, client facades
-│   │   └── src/
-│   │       ├── client/              # MorphClient, HostClient, AuthHandle
-│   │       ├── config/              # validate (CtxRef, hostByKey), interpolate ($variable)
-│   │       ├── http/                # HostPipeline (depends on AuthPlugin interface)
-│   │       ├── util/                # jwt, expiry, url, duration, httpTrace, oauthState
-│   │       ├── runtime.ts           # MorphRuntime coordinator
-│   │       ├── types.ts             # Public interfaces (AuthPlugin, StorageProvider, …)
-│   │       ├── errors.ts            # Error classes
-│   │       └── index.ts             # Public exports
-│   ├── oauth2/                      # @morph/oauth2 — OAuth2 token lifecycle plugin
-│   │   └── src/
-│   │       ├── tokens/              # TokenLifecycle (implements AuthPlugin), TokenVault
-│   │       ├── oauth/               # tokenHttp (grant HTTP)
-│   │       ├── util/                # interpolate, expiry, exchangeSources
-│   │       └── index.ts             # oauth2Plugin() MorphPlugin factory
-│   ├── browser-storage/             # @morph/browser-storage — browser storage adapters
-│   │   └── src/
-│   │       ├── browserStorage.ts    # createBrowserSessionStorage, createBrowserLocalStorage
-│   │       └── index.ts             # browserStoragePlugin() MorphPlugin factory
-│   └── logger/                      # @morph/logger — structured logging plugin
-│       └── src/
-│           └── index.ts             # loggerPlugin() MorphPlugin factory
+│   ├── ts/                          # TypeScript npm workspaces (@morph/*)
+│   │   ├── core/                    # @morph/core — types, config, HTTP pipeline, client facades
+│   │   │   └── src/
+│   │   │       ├── client/          # MorphClient, HostClient, AuthHandle
+│   │   │       ├── config/        # validate (CtxRef, hostByKey), interpolate ($variable)
+│   │   │       ├── http/          # HostPipeline (depends on AuthPlugin interface)
+│   │   │       ├── util/          # jwt, expiry, url, duration, httpTrace, oauthState
+│   │   │       ├── runtime.ts     # MorphRuntime coordinator
+│   │   │       ├── types.ts       # Public interfaces (AuthPlugin, StorageProvider, …)
+│   │   │       ├── errors.ts      # Error classes
+│   │   │       └── index.ts       # Public exports
+│   │   ├── oauth2/                  # @morph/oauth2 — OAuth2 token lifecycle plugin
+│   │   │   └── src/
+│   │   │       ├── tokens/        # TokenLifecycle (implements AuthPlugin), TokenVault
+│   │   │       ├── oauth/         # tokenHttp (grant HTTP)
+│   │   │       ├── util/          # interpolate, expiry, exchangeSources
+│   │   │       └── index.ts       # oauth2Plugin() MorphPlugin factory
+│   │   ├── browser-storage/         # @morph/browser-storage — browser storage adapters
+│   │   │   └── src/
+│   │   │       ├── browserStorage.ts
+│   │   │       └── index.ts       # browserStoragePlugin() MorphPlugin factory
+│   │   └── logger/                  # @morph/logger — structured logging plugin
+│   │       └── src/
+│   │           └── index.ts       # loggerPlugin() MorphPlugin factory
+│   └── dart/                        # Dart Pub packages (morph_*), parity with TS track
+│       ├── morph_core/
+│       ├── morph_oauth2/
+│       ├── morph_logger/
+│       └── morph_storage/
 ├── poc/
 │   ├── ts-vue/                      # Vue 3 PoC app
 │   ├── keycloak/                    # Docker Keycloak realm

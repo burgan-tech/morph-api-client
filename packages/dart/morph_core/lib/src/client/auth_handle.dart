@@ -3,7 +3,7 @@ import '../runtime/morph_runtime.dart';
 import '../types/morph_surface.dart';
 import '../util/jwt_utils.dart';
 
-/// Parity: [`AuthHandle`](packages/core/src/client/AuthHandle.ts).
+/// Parity: [`AuthHandle`](packages/ts/core/src/client/AuthHandle.ts).
 final class AuthHandle {
   AuthHandle(this._rt, this.authId);
 

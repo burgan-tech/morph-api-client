@@ -1,7 +1,7 @@
 import 'package:morph_core/src/util/duration_ms.dart';
 import 'package:morph_core/src/util/jwt_utils.dart';
 
-/// Parity [packages/oauth2/src/util/expiry.ts].
+/// Parity [packages/ts/oauth2/src/util/expiry.ts].
 int? computeExpiresAt(String accessToken, int? expiresIn, String? maxTtl) {
   final fromJwt = getJwtExpirySeconds(accessToken);
   final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;

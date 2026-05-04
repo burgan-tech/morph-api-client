@@ -3,7 +3,7 @@ import 'package:morph_core/morph_core.dart';
 import 'oauth_callbacks.dart';
 import 'token_lifecycle.dart';
 
-/// Options for [oauth2Plugin] ([`OAuth2PluginOptions`](../packages/oauth2/src/index.ts) parity).
+/// Options for [oauth2Plugin]. TS parity: [`OAuth2PluginOptions`](/packages/ts/oauth2/src/index.ts).
 final class OAuth2PluginOptions {
   const OAuth2PluginOptions({
     this.storage,
@@ -38,7 +38,7 @@ MorphLogFn? _resolveLogFn(Object? logger, MorphPluginContext ctx) {
   return ctx.options.onLog;
 }
 
-/// OAuth2 auth plugin parity with TS [`oauth2Plugin`](../packages/oauth2/src/index.ts).
+/// OAuth2 auth plugin parity with TS [`oauth2Plugin`](/packages/ts/oauth2/src/index.ts).
 MorphPlugin oauth2Plugin([OAuth2PluginOptions? opts]) =>
     _OAuth2MorphPlugin(opts ?? const OAuth2PluginOptions());
 
