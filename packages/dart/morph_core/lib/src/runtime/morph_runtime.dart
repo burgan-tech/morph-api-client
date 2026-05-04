@@ -8,6 +8,8 @@ import '../types/morph_types.dart';
 import '../util/jwt_utils.dart';
 import '../util/oauth_authorize.dart';
 import '../util/oauth_state.dart';
+import 'oauth_return_browser_stub.dart'
+    if (dart.library.html) 'oauth_return_browser.dart';
 import 'plugin_install.dart';
 
 /// Result of [MorphRuntime.parseAuthRef] (parity TS union on `parseAuthRef`).
@@ -367,7 +369,7 @@ final class MorphRuntime {
     if (ref == null) {
       return OAuthReturnResult(status: 'error', message: 'Unknown rootCallbackAuthId: $rootId');
     }
-    final redirectOverride = '${Uri.base.origin}/';
+    final redirectOverride = _resolvedRootOAuthRedirectUriOverride();
     try {
       await tokens.submitCode(
         rootId,
@@ -384,13 +386,39 @@ final class MorphRuntime {
     }
   }
 
-  /// Browser-oriented (parity TS). On standalone VM returns `{ status: none }`.
-  Future<OAuthReturnResult> completeOAuthReturn() async {
-    assertAlive();
-    return const OAuthReturnResult(status: 'none');
+  String _resolvedRootOAuthRedirectUriOverride() {
+    final raw = options.oauthRedirectBase?.trim();
+    if (raw != null && raw.isNotEmpty) {
+      final withScheme = raw.contains('://') ? raw : 'https://$raw';
+      final u = Uri.tryParse(withScheme);
+      if (u != null && (u.scheme == 'http' || u.scheme == 'https')) {
+        return '${u.origin}/';
+      }
+    }
+    return '${Uri.base.origin}/';
   }
 
-  Future<OAuthReturnResult> completeAuthorizationReturnFromUrl() => completeOAuthReturn();
+  /// Browser-oriented when compiled with dart:html, or pass [currentUri] on any platform.
+  /// If the URI path is non-root (`/` or empty), returns `{ status: none }`.
+  Future<OAuthReturnResult> completeOAuthReturn({Uri? currentUri}) async {
+    assertAlive();
+    final loc = currentUri ?? oauthReturnReadLocationUri();
+    if (loc == null) return const OAuthReturnResult(status: 'none');
+    final path = loc.path;
+    if (path.isNotEmpty && path != '/') return const OAuthReturnResult(status: 'none');
+    final qp = loc.queryParameters;
+    final result = await completeOAuthCallback(
+      code: qp['code'],
+      state: qp['state'],
+      error: qp['error'],
+      errorDescription: qp['error_description'],
+    );
+    if (result.status != 'none') oauthReturnReplaceLocationHref(loc.toString());
+    return result;
+  }
+
+  Future<OAuthReturnResult> completeAuthorizationReturnFromUrl({Uri? currentUri}) =>
+      completeOAuthReturn(currentUri: currentUri);
 }
 
 MorphRuntime createMorphRuntime(
