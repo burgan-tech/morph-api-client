@@ -20,6 +20,16 @@ The table shows **status**, **total ms**, and a short **detail** line. **Verbose
 
 If **one tick** yields **AUTH** for **every** auth id listed in **`sessionDeadCheck.authIds`** in `docs/poc/poc-simulation.json` (default: **1fa** and **2fa**), the loop **stops** and the banner shows **`sessionDeadCheck.message`**. Adjust the list or message in JSON if your scenario differs.
 
+## Flutter PoC executor
+
+The Flutter app at **`poc/flutter-poc`** includes a copy of this document’s JSON as **`assets/poc-simulation.json`**. Execution is implemented in **`lib/poc_simulation.dart`**:
+
+- **`fetch`** — `GET` via `package:http` to `mockApi.baseUrl` (with timeout); same step shape as Vue.
+- **`host`** — `MorphRuntime.http.hostFetch` with `method`, `path`, `auth`, optional `body` / `headers`.
+- **`logout_provider`** — `MorphClient.auth(providerKey).logout()`.
+
+Parsing is synchronous via **`parsePocSimulationJson`** (tests) and **`loadPocSimulation`** (loads the asset). The **Simulation** panel runs steps **when the user taps Run** (not on a fixed interval like the Vue dev server’s default tick). **Session dead:** after an **AUTH** result, **`isPocSessionDeadStop`** requires the step’s host **`auth`** to be listed in **`sessionDeadCheck.authIds`** *and* `invalid_grant` or `Token is not active` in the error detail (parentheses matter — see unit tests). **Unit tests:** `poc/flutter-poc/test/poc_simulation_test.dart`.
+
 ## Short token lifetimes (Keycloak)
 
 **Fresh** imports use the short defaults below (`morph-realm.json`). If Keycloak was created from an older export or you ran **`restore-simulation-lifetimes.sh`** (long-lived PoC), re-apply the short profile (Keycloak must be up):
