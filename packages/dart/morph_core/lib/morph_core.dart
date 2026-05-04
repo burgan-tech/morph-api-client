@@ -2,6 +2,8 @@
 library;
 
 export 'src/morph_client.dart';
+export 'src/client/host_client.dart';
+export 'src/client/auth_handle.dart';
 
 export 'src/runtime/morph_runtime.dart';
 export 'src/runtime/plugin_install.dart';
