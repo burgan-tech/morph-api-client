@@ -233,6 +233,7 @@ final class MorphOptions {
   MorphOptions({
     required this.plugins,
     this.variables,
+    this.oauthRedirectBase,
     this.networkDelegate,
     this.onSignPayload,
     this.onDecryptResponse,
@@ -242,6 +243,11 @@ final class MorphOptions {
 
   final List<MorphPlugin> plugins;
   final Map<String, String>? variables;
+
+  /// When set (e.g. full `https://` callback origin), overrides [Uri.base] for root
+  /// OAuth code exchange redirect URI. Prefer on Flutter VM/desktop/native where
+  /// `Uri.base` is not the web app origin.
+  final String? oauthRedirectBase;
 
   final Future<NetworkConfig?> Function(String hostname)? networkDelegate;
   final MorphSignPayloadFn? onSignPayload;
