@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:morph_core/morph_core.dart';
@@ -69,8 +70,12 @@ Future<Map<String, String>> _buildVariables() async {
   final deviceId = _readOrCreate(prefs, '${_kPrefsPrefix}device-id');
   final installationId = _readOrCreate(prefs, '${_kPrefsPrefix}install-id');
 
-  const keycloakBase =
-      'http://localhost:8080/realms/morph/protocol/openid-connect';
+  // On Android emulators, localhost refers to the emulator's own loopback.
+  // Use 10.0.2.2 to reach the host machine's localhost instead.
+  final host = Platform.isAndroid ? '10.0.2.2' : 'localhost';
+  final keycloakBase =
+      'http://$host:8080/realms/morph/protocol/openid-connect';
+  final mockApiBase = 'http://$host:3000';
 
   return {
     'deviceId': deviceId,
@@ -92,6 +97,7 @@ Future<Map<String, String>> _buildVariables() async {
     'keycloakOidcBase': keycloakBase,
     'keycloakBrowserBaseUrl': keycloakBase,
     'pocKeycloakTokenHttpBase': '',
+    'mockApiBase': mockApiBase,
     // Google (disabled by default in the PoC).
     'pocGoogleTokenHttpBase': '',
     'pocGoogleTokenEndpoint': 'https://oauth2.googleapis.com/token',

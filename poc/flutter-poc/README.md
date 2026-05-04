@@ -79,6 +79,13 @@ flutter run \
 The redirect URI `morphpoc://oauth/callback` must be registered in
 Keycloak → client → Valid Redirect URIs.
 
+### Android emulator networking
+
+On Android emulators `localhost` resolves to the emulator's own loopback
+interface, not the host machine. The app detects `Platform.isAndroid` and
+automatically substitutes `10.0.2.2` for all backend URLs (Keycloak,
+mock-API). On physical devices and iOS simulators, `localhost` is used as-is.
+
 ## Architecture
 
 ```

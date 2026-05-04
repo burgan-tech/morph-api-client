@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:app_links/app_links.dart';
 import 'package:flutter/material.dart';
 import 'package:morph_core/morph_core.dart';
@@ -24,6 +26,7 @@ class MorphPocApp extends StatefulWidget {
 
 class _MorphPocAppState extends State<MorphPocApp> {
   late final AppLinks _appLinks;
+  StreamSubscription<Uri>? _linkSubscription;
   String? _pendingOAuthMessage;
 
   @override
@@ -34,9 +37,7 @@ class _MorphPocAppState extends State<MorphPocApp> {
   }
 
   void _listenForDeepLinks() {
-    _appLinks.uriLinkStream.listen((uri) {
-      _handleIncomingUri(uri);
-    });
+    _linkSubscription = _appLinks.uriLinkStream.listen(_handleIncomingUri);
   }
 
   Future<void> _handleIncomingUri(Uri uri) async {
@@ -64,6 +65,7 @@ class _MorphPocAppState extends State<MorphPocApp> {
 
   @override
   void dispose() {
+    _linkSubscription?.cancel();
     widget.morph.dispose();
     super.dispose();
   }

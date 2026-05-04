@@ -42,6 +42,10 @@ class _HttpTraceLogState extends State<HttpTraceLog> {
                 style: TextStyle(color: Colors.grey)),
           )
         else
+          // shrinkWrap + NeverScrollableScrollPhysics is intentional here:
+          // the list is capped at 100 entries so lazy-loading yields no benefit,
+          // and nesting inside SingleChildScrollView requires a bounded height.
+          // For unbounded production logs, prefer CustomScrollView + SliverList.
           ListView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
@@ -162,20 +166,15 @@ class _DetailPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     const enc = JsonEncoder.withIndent('  ');
 
-    String content;
-    switch (tab) {
-      case _TraceTab.request:
-        content = enc.convert(event.requestHeaders);
-      case _TraceTab.response:
-        content = enc.convert(event.responseHeaders);
-      case _TraceTab.body:
-        final b = event.responseBody;
-        content = b == null
-            ? '(empty)'
-            : b is Map || b is List
-                ? enc.convert(b)
-                : b.toString();
-    }
+    final content = switch (tab) {
+      _TraceTab.request  => enc.convert(event.requestHeaders),
+      _TraceTab.response => enc.convert(event.responseHeaders),
+      _TraceTab.body => switch (event.responseBody) {
+          null                                    => '(empty)',
+          final b when b is Map || b is List      => enc.convert(b),
+          final b                                 => b.toString(),
+        },
+    };
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
