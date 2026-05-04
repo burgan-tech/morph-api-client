@@ -27,10 +27,13 @@ class HomeScreen extends StatefulWidget {
   final MorphClient morph;
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  State<HomeScreen> createState() => HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class HomeScreenState extends State<HomeScreen> {
+  /// Public entrypoint so the parent app can request a refresh after OAuth.
+  Future<void> refreshStatus() => _refreshStatus();
+
   List<MorphTokenStatus> _tokenStatus = [];
   String _message = '';
   bool _busy = false;

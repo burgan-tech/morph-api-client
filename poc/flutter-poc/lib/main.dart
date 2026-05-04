@@ -8,64 +8,42 @@ import 'package:morph_core/morph_core.dart';
 import 'morph_init.dart';
 import 'screens/home_screen.dart';
 
+/// Captures the OAuth params from the URL **synchronously** before runApp,
+/// so we can clear them from `Uri.base` and process them after the UI mounts.
+({String? code, String? state})? _captureWebOAuthParams() {
+  if (!kIsWeb) return null;
+  final uri = Uri.base;
+  final code = uri.queryParameters['code'];
+  final state = uri.queryParameters['state'];
+  if (code == null || state == null) return null;
+  return (code: code, state: state);
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // ignore: avoid_print
   print('[morph-poc] main() start — ${Uri.base}');
 
+  final pendingOAuth = _captureWebOAuthParams();
+  // ignore: avoid_print
+  print('[morph-poc] OAuth params present? ${pendingOAuth != null}');
+
   final morph = await initMorph();
-
   // ignore: avoid_print
-  print('[morph-poc] initMorph() done');
+  print('[morph-poc] initMorph() done — runApp now');
 
-  // On web, handle OAuth callback BEFORE runApp so tokens are stored before
-  // HomeScreen reads token status. The callback URL looks like:
-  //   http://localhost:4200/?code=XXX&state=YYY
-  String? oauthMessage;
-  if (kIsWeb) {
-    final uri = Uri.base;
-    final code = uri.queryParameters['code'];
-    final state = uri.queryParameters['state'];
-    // ignore: avoid_print
-    print('[morph-poc] web — code=${code != null ? "present" : "absent"} state=${state != null ? "present" : "absent"}');
-    if (code != null && state != null) {
-      try {
-        // ignore: avoid_print
-        print('[morph-poc] calling completeOAuthCallback…');
-        final result = await morph.completeOAuthCallback(code: code, state: state);
-        oauthMessage =
-            'OAuth complete: ${result.status}${result.message != null ? ' — ${result.message}' : ''}';
-        // ignore: avoid_print
-        print('[morph-poc] completeOAuthCallback DONE: ${result.status} / ${result.message}');
-      } catch (e, st) {
-        oauthMessage = 'OAuth callback error: $e';
-        // ignore: avoid_print
-        print('[morph-poc] completeOAuthCallback THREW: $e\n$st');
-      }
-    } else {
-      // ignore: avoid_print
-      print('[morph-poc] no code/state in URL — skipping completeOAuthCallback');
-    }
-  }
-
+  // Render UI immediately; HomeScreen will process the OAuth callback in initState.
+  runApp(MorphPocApp(morph: morph, pendingOAuth: pendingOAuth));
   // ignore: avoid_print
-  print('[morph-poc] calling runApp — oauthMessage=$oauthMessage');
-  try {
-    runApp(MorphPocApp(morph: morph, initialMessage: oauthMessage));
-    // ignore: avoid_print
-    print('[morph-poc] runApp returned (Flutter engine started)');
-  } catch (e, st) {
-    // ignore: avoid_print
-    print('[morph-poc] runApp THREW: $e\n$st');
-  }
+  print('[morph-poc] runApp returned');
 }
 
 class MorphPocApp extends StatefulWidget {
-  const MorphPocApp({super.key, required this.morph, this.initialMessage});
+  const MorphPocApp({super.key, required this.morph, this.pendingOAuth});
 
   final MorphClient morph;
-  final String? initialMessage;
+  final ({String? code, String? state})? pendingOAuth;
 
   @override
   State<MorphPocApp> createState() => _MorphPocAppState();
@@ -75,15 +53,48 @@ class _MorphPocAppState extends State<MorphPocApp> {
   AppLinks? _appLinks;
   StreamSubscription<Uri>? _linkSubscription;
   String? _pendingOAuthMessage;
+  final GlobalKey<HomeScreenState> _homeKey = GlobalKey<HomeScreenState>();
 
   @override
   void initState() {
     super.initState();
-    // Carry the OAuth result message from main() into the UI.
-    _pendingOAuthMessage = widget.initialMessage;
+    // ignore: avoid_print
+    print('[morph-poc] _MorphPocAppState.initState');
     if (!kIsWeb) {
       _appLinks = AppLinks();
       _linkSubscription = _appLinks!.uriLinkStream.listen(_handleIncomingUri);
+    } else if (widget.pendingOAuth != null) {
+      // Process web OAuth callback AFTER the UI mounted, so a hang/error
+      // here does not prevent runApp from rendering.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _processPendingWebOAuth();
+      });
+    }
+  }
+
+  Future<void> _processPendingWebOAuth() async {
+    final p = widget.pendingOAuth!;
+    // ignore: avoid_print
+    print('[morph-poc] _processPendingWebOAuth: calling completeOAuthCallback…');
+    try {
+      final result = await widget.morph.completeOAuthCallback(
+        code: p.code,
+        state: p.state,
+      );
+      // ignore: avoid_print
+      print('[morph-poc] completeOAuthCallback DONE: ${result.status} / ${result.message}');
+      if (mounted) {
+        setState(() => _pendingOAuthMessage =
+            'OAuth complete: ${result.status}${result.message != null ? ' — ${result.message}' : ''}');
+        // Trigger HomeScreen to re-read token status after OAuth completes.
+        await _homeKey.currentState?.refreshStatus();
+      }
+    } catch (e, st) {
+      // ignore: avoid_print
+      print('[morph-poc] completeOAuthCallback THREW: $e\n$st');
+      if (mounted) {
+        setState(() => _pendingOAuthMessage = 'OAuth callback error: $e');
+      }
     }
   }
 
@@ -141,7 +152,7 @@ class _MorphPocAppState extends State<MorphPocApp> {
               setState(() => _pendingOAuthMessage = null);
             });
           }
-          return HomeScreen(morph: widget.morph);
+          return HomeScreen(key: _homeKey, morph: widget.morph);
         },
       ),
     );
