@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:morph_core/morph_core.dart';
@@ -9,6 +11,8 @@ import '../widgets/mock_api_sheet.dart';
 import '../widgets/provider_config_sheet.dart';
 import '../widgets/simulation_panel.dart';
 import '../widgets/token_status_card.dart';
+
+// ignore_for_file: avoid_print
 
 const _kStatusLabels = {
   'morph-auth/device': 'Device',
@@ -34,13 +38,26 @@ class _HomeScreenState extends State<HomeScreen> {
   String _message = '';
   bool _busy = false;
   PocSimulationConfig? _simCfg;
+  Timer? _logTimer;
+  List<String> _sdkLogs = [];
 
   MorphClient get _morph => widget.morph;
 
   @override
   void initState() {
     super.initState();
+    _sdkLogs = List.from(morphLogLines);
+    // Refresh SDK log lines every 2 seconds so the panel updates automatically.
+    _logTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+      if (mounted) setState(() => _sdkLogs = List.from(morphLogLines));
+    });
     _init();
+  }
+
+  @override
+  void dispose() {
+    _logTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _init() async {
@@ -290,6 +307,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   onStatusChanged: _refreshStatus,
                 ),
 
+              // ── SDK Log ──
+              _SectionHeader('SDK Log'),
+              _SdkLogPanel(logs: _sdkLogs),
               const SizedBox(height: 32),
             ],
           ),
@@ -593,6 +613,67 @@ class _SectionHeader extends StatelessWidget {
             .textTheme
             .titleSmall
             ?.copyWith(color: Theme.of(context).colorScheme.primary),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// SDK log panel — shows morphLogLines in real time
+// ---------------------------------------------------------------------------
+
+class _SdkLogPanel extends StatelessWidget {
+  const _SdkLogPanel({required this.logs});
+
+  final List<String> logs;
+
+  static const _levelColors = {
+    '[error]': Color(0xFFB71C1C),
+    '[warn]': Color(0xFFE65100),
+    '[info]': Color(0xFF1B5E20),
+    '[debug]': Color(0xFF37474F),
+  };
+
+  Color _colorFor(String line) {
+    for (final entry in _levelColors.entries) {
+      if (line.toLowerCase().contains(entry.key)) return entry.value;
+    }
+    return const Color(0xFF37474F);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final visible = logs.reversed.take(30).toList();
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      child: Container(
+        constraints: const BoxConstraints(maxHeight: 260),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF5F5F5),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.grey.shade300),
+        ),
+        child: visible.isEmpty
+            ? const Padding(
+                padding: EdgeInsets.all(12),
+                child: Text('No SDK log entries yet.',
+                    style: TextStyle(fontSize: 11, color: Colors.grey)),
+              )
+            : ListView.builder(
+                shrinkWrap: true,
+                reverse: false,
+                padding: const EdgeInsets.all(8),
+                itemCount: visible.length,
+                itemBuilder: (_, i) => Text(
+                  visible[i],
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontFamily: 'monospace',
+                    color: _colorFor(visible[i]),
+                    height: 1.4,
+                  ),
+                ),
+              ),
       ),
     );
   }

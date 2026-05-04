@@ -11,7 +11,13 @@ import 'screens/home_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // ignore: avoid_print
+  print('[morph-poc] main() start — ${Uri.base}');
+
   final morph = await initMorph();
+
+  // ignore: avoid_print
+  print('[morph-poc] initMorph() done');
 
   // On web, handle OAuth callback BEFORE runApp so tokens are stored before
   // HomeScreen reads token status. The callback URL looks like:
@@ -21,17 +27,27 @@ void main() async {
     final uri = Uri.base;
     final code = uri.queryParameters['code'];
     final state = uri.queryParameters['state'];
+    // ignore: avoid_print
+    print('[morph-poc] web — code=${code != null ? "present" : "absent"} state=${state != null ? "present" : "absent"}');
     if (code != null && state != null) {
       try {
+        // ignore: avoid_print
+        print('[morph-poc] calling completeOAuthCallback…');
         final result = await morph.completeOAuthCallback(code: code, state: state);
         oauthMessage =
             'OAuth complete: ${result.status}${result.message != null ? ' — ${result.message}' : ''}';
+        // ignore: avoid_print
+        print('[morph-poc] completeOAuthCallback result: ${result.status} ${result.message}');
       } catch (e) {
         oauthMessage = 'OAuth callback error: $e';
+        // ignore: avoid_print
+        print('[morph-poc] completeOAuthCallback ERROR: $e');
       }
     }
   }
 
+  // ignore: avoid_print
+  print('[morph-poc] runApp — oauthMessage=$oauthMessage');
   runApp(MorphPocApp(morph: morph, initialMessage: oauthMessage));
 }
 

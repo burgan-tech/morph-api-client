@@ -75,7 +75,10 @@
       "fullScopeAllowed": true,
       "attributes": {
         "access.token.lifespan": "30"
-      }
+      },
+      "webOrigins": [
+        "http://localhost:4200"
+      ]
     },
     {
       "clientId": "morph-login",
@@ -148,7 +151,10 @@
         "access.token.lifespan": "40",
         "client.session.idle.timeout": "60",
         "oauth2.token.exchange.grant.enabled": "true"
-      }
+      },
+      "webOrigins": [
+        "http://localhost:4200"
+      ]
     },
     {
       "clientId": "morph-api",
