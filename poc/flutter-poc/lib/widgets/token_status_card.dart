@@ -13,20 +13,24 @@ const _kLabels = <String, String>{
 
 /// A card displaying the status of one [MorphTokenStatus] entry.
 class TokenStatusCard extends StatelessWidget {
-  const TokenStatusCard({super.key, required this.status, this.onTap});
+  const TokenStatusCard({super.key, required this.status, this.label, this.onTap});
 
   final MorphTokenStatus status;
+
+  /// Optional display label; falls back to [_kLabels] map then [authId].
+  final String? label;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    final label = _kLabels[status.authId] ?? status.authId;
+    final label = this.label ?? _kLabels[status.authId] ?? status.authId;
     final hasToken = status.hasAccessToken;
     final valid = status.accessLikelyValid;
     final expiry = _formatExp(status);
 
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      margin: EdgeInsets.zero,
+      elevation: 0,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),

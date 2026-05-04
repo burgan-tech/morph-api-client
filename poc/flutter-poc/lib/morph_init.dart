@@ -1,6 +1,7 @@
 import 'dart:convert';
-import 'dart:io';
 
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, kIsWeb, TargetPlatform;
 import 'package:flutter/services.dart';
 import 'package:morph_core/morph_core.dart';
 import 'package:morph_core_storage/morph_core_storage.dart';
@@ -11,8 +12,21 @@ import 'package:morph_oauth2/morph_oauth2.dart';
 import 'package:morph_storage/memory_storage_plugin.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Deep-link URI scheme used by the Flutter PoC.
+/// Deep-link URI scheme used by the Flutter PoC on mobile/desktop.
 const String kOAuthCallbackUri = 'morphpoc://oauth/callback';
+
+/// Returns the mock API base URL for the current platform.
+/// Android emulators use 10.0.2.2 to reach the host machine's localhost.
+String getMockApiBase() {
+  final host = (!kIsWeb && defaultTargetPlatform == TargetPlatform.android)
+      ? '10.0.2.2'
+      : 'localhost';
+  return 'http://$host:3000';
+}
+
+/// Redirect URI used when running as a Flutter web app on Chrome.
+/// Must be registered in Keycloak's morph-login client redirectUris.
+const String kWebOAuthCallbackUri = 'http://localhost:4200/';
 
 /// Prefix for SharedPreferences keys.
 const String _kPrefsPrefix = 'morph-poc:';
@@ -95,7 +109,10 @@ Future<Map<String, String>> _buildVariables() async {
 
   // On Android emulators, localhost refers to the emulator's own loopback.
   // Use 10.0.2.2 to reach the host machine's localhost instead.
-  final host = Platform.isAndroid ? '10.0.2.2' : 'localhost';
+  // On web (Chrome), localhost is always correct since the browser runs on the host.
+  final host = (!kIsWeb && defaultTargetPlatform == TargetPlatform.android)
+      ? '10.0.2.2'
+      : 'localhost';
   final keycloakBase =
       'http://$host:8080/realms/morph/protocol/openid-connect';
   final mockApiBase = 'http://$host:3000';
@@ -126,8 +143,8 @@ Future<Map<String, String>> _buildVariables() async {
     'pocGoogleTokenEndpoint': 'https://oauth2.googleapis.com/token',
     'googleClientId': const String.fromEnvironment('GOOGLE_CLIENT_ID'),
     'googleClientSecret': const String.fromEnvironment('GOOGLE_CLIENT_SECRET'),
-    // OAuth redirect — custom scheme handled by app_links.
-    'oauthCallbackUri': kOAuthCallbackUri,
+    // OAuth redirect — HTTP redirect on web, custom scheme on mobile/desktop.
+    'oauthCallbackUri': kIsWeb ? kWebOAuthCallbackUri : kOAuthCallbackUri,
   };
 }
 

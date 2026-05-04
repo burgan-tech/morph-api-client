@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:app_links/app_links.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:morph_core/morph_core.dart';
 
@@ -25,23 +26,36 @@ class MorphPocApp extends StatefulWidget {
 }
 
 class _MorphPocAppState extends State<MorphPocApp> {
-  late final AppLinks _appLinks;
+  AppLinks? _appLinks;
   StreamSubscription<Uri>? _linkSubscription;
   String? _pendingOAuthMessage;
 
   @override
   void initState() {
     super.initState();
-    _appLinks = AppLinks();
-    _listenForDeepLinks();
+    if (kIsWeb) {
+      // On web, Keycloak redirects back to the app URL with code+state params.
+      // Check Uri.base once on startup instead of using a custom scheme listener.
+      _handleWebOAuthCallbackIfPresent();
+    } else {
+      _appLinks = AppLinks();
+      _linkSubscription = _appLinks!.uriLinkStream.listen(_handleIncomingUri);
+    }
   }
 
-  void _listenForDeepLinks() {
-    _linkSubscription = _appLinks.uriLinkStream.listen(_handleIncomingUri);
+  /// Detects an OAuth callback redirect on web by inspecting [Uri.base].
+  void _handleWebOAuthCallbackIfPresent() {
+    final uri = Uri.base;
+    if (uri.queryParameters.containsKey('code') &&
+        uri.queryParameters.containsKey('state')) {
+      _handleIncomingUri(uri);
+    }
   }
 
   Future<void> _handleIncomingUri(Uri uri) async {
-    if (!uri.toString().startsWith(kOAuthCallbackUri)) return;
+    final uriStr = uri.toString();
+    final expectedPrefix = kIsWeb ? kWebOAuthCallbackUri : kOAuthCallbackUri;
+    if (!uriStr.startsWith(expectedPrefix)) return;
 
     final code = uri.queryParameters['code'];
     final state = uri.queryParameters['state'];
