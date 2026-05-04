@@ -1,0 +1,107 @@
+{
+  "version": 1,
+  "description": "PoC bundle simulator: ordered mock + Morph host steps. Edit to add POST bodies, paths, or conditional blocks.",
+  "mockApi": {
+    "baseUrl": "http://localhost:3000",
+    "envOverride": "VITE_MOCK_API_BASE"
+  },
+  "sessionDeadCheck": {
+    "authIds": ["morph-auth/1fa", "morph-auth/2fa"],
+    "message": "Keycloak session is dead (refresh: invalid_grant / Token is not active). Simulation stopped — sign in again from Home."
+  },
+  "steps": [
+    { "type": "fetch", "label": "GET /public/config", "path": "/public/config" },
+    { "type": "fetch", "label": "GET /health", "path": "/health" },
+    {
+      "type": "host",
+      "label": "GET /profile (1fa)",
+      "hostKey": "main-api",
+      "method": "GET",
+      "path": "/profile",
+      "auth": "morph-auth/1fa"
+    },
+    {
+      "type": "host",
+      "label": "GET /accounts (2fa)",
+      "hostKey": "main-api",
+      "method": "GET",
+      "path": "/accounts",
+      "auth": "morph-auth/2fa"
+    },
+    {
+      "type": "host",
+      "label": "POST /transfers (2fa)",
+      "hostKey": "main-api",
+      "method": "POST",
+      "path": "/transfers",
+      "auth": "morph-auth/2fa",
+      "body": {
+        "fromAccount": "ACC-001",
+        "toAccount": "ACC-002",
+        "amount": 1,
+        "currency": "TRY"
+      }
+    },
+    {
+      "type": "host",
+      "label": "GET /profile + per-call headers",
+      "hostKey": "main-api",
+      "method": "GET",
+      "path": "/profile",
+      "auth": "morph-auth/1fa",
+      "headers": { "X-Poc-Sim-Extra": "static-from-json" },
+      "tickHeaderName": "X-Poc-Sim-Tick"
+    },
+    {
+      "type": "host",
+      "label": "GET /public/config (device bearer)",
+      "hostKey": "main-api",
+      "method": "GET",
+      "path": "/public/config",
+      "auth": "morph-auth/device"
+    },
+    {
+      "type": "logout_provider",
+      "label": "Logout morph-auth",
+      "providerKey": "morph-auth"
+    }
+  ],
+  "conditionalBlocks": [
+    {
+      "id": "google_verify",
+      "when": {
+        "type": "all",
+        "all": [
+          { "type": "provider_env_ready", "providerKey": "google-auth" },
+          { "type": "has_valid_token", "authId": "google-auth/google" }
+        ]
+      },
+      "skipRow": {
+        "label": "GET /identity/verify (Google)",
+        "detail": "No Google session — use “Google login” on Home first (AUTH here would be normal)."
+      },
+      "steps": [
+        {
+          "type": "host",
+          "label": "GET /identity/verify (Google)",
+          "hostKey": "main-api",
+          "method": "GET",
+          "path": "/identity/verify",
+          "auth": "google-auth/google"
+        }
+      ]
+    },
+    {
+      "id": "probe_404",
+      "when": { "type": "ui_flag_probe_404" },
+      "steps": [
+        {
+          "type": "fetch",
+          "label": "GET /sim/not-found (expect 404)",
+          "path": "/sim/not-found",
+          "expectStatus": 404
+        }
+      ]
+    }
+  ]
+}

@@ -24,6 +24,7 @@ dependencies:
     path: ../../../morph-data-store/adapters/dart-morph-core-storage
   morph_data_store:
     path: ../../../morph-data-store/core/dart-morph-data-store
+  http: ^1.2.0
   url_launcher: ^6.3.0
   app_links: ^6.4.0
   shared_preferences: ^2.3.0
@@ -37,3 +38,4 @@ flutter:
   uses-material-design: true
   assets:
     - assets/poc-config.json
+    - assets/poc-simulation.json

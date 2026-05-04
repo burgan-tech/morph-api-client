@@ -1,6 +1,7 @@
 import 'dart:convert';
-import 'dart:io';
 
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, kIsWeb, TargetPlatform;
 import 'package:flutter/services.dart';
 import 'package:morph_core/morph_core.dart';
 import 'package:morph_core_storage/morph_core_storage.dart';
@@ -11,8 +12,21 @@ import 'package:morph_oauth2/morph_oauth2.dart';
 import 'package:morph_storage/memory_storage_plugin.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Deep-link URI scheme used by the Flutter PoC.
+/// Deep-link URI scheme used by the Flutter PoC on mobile/desktop.
 const String kOAuthCallbackUri = 'morphpoc://oauth/callback';
+
+/// Returns the mock API base URL for the current platform.
+/// Android emulators use 10.0.2.2 to reach the host machine's localhost.
+String getMockApiBase() {
+  final host = (!kIsWeb && defaultTargetPlatform == TargetPlatform.android)
+      ? '10.0.2.2'
+      : 'localhost';
+  return 'http://$host:3000';
+}
+
+/// Redirect URI used when running as a Flutter web app on Chrome.
+/// Must be registered in Keycloak's morph-login client redirectUris.
+const String kWebOAuthCallbackUri = 'http://localhost:4200/';
 
 /// Prefix for SharedPreferences keys.
 const String _kPrefsPrefix = 'morph-poc:';
@@ -23,10 +37,13 @@ final List<String> morphLogLines = [];
 /// HTTP trace events collected via [MorphOptions.onHttpTrace]; consumed by the UI.
 final List<MorphHttpTraceEvent> morphHttpTraces = [];
 
-/// Shared log appender — consistent format used by both MorphOptions.onLog
-/// and ContextStoreOptions.onLog.
+/// Shared log appender — writes to browser console AND keeps the in-memory
+/// ring buffer (consumed by UI widgets).
+// ignore: avoid_print
 void _appendLog(String level, String message, [Object? error]) {
-  final entry = '[$level] $message${error != null ? ' — $error' : ''}';
+  final entry = '[morph][$level] $message${error != null ? ' — $error' : ''}';
+  // ignore: avoid_print
+  print(entry);
   morphLogLines.add(entry);
   if (morphLogLines.length > 300) morphLogLines.removeAt(0);
 }
@@ -40,22 +57,32 @@ Future<MorphClient> initMorph() async {
 
   final logger = loggerPlugin(const LoggerPluginOptions(level: 'debug'));
 
-  // Persistent, boundary-scoped, optionally encrypted storage via morph_data_store.
-  // Falls back to in-memory storage if ContextStore initialization fails
-  // (e.g., Keychain unavailable in simulator without entitlements).
+  // Storage strategy:
+  // • Web: in-memory only.  ContextStore requires an active user identity
+  //   (Boundary.user) to build storage keys, but on web the OAuth redirect
+  //   reloads the page — so the identity is never set before the token write.
+  //   In-memory storage is correct here: completeOAuthCallback() runs in main()
+  //   before runApp(), so the token lives in the same JS heap the app reads from.
+  // • Native: ContextStore (persistent, boundary-scoped).  Deep-link callbacks
+  //   do NOT reload the process, so identity can be set before token storage.
   MorphPlugin storagePlugin;
-  try {
-    final contextStore = await ContextStore.create(ContextStoreOptions(
-      onRequestServerTime: (_, __) async => null,
-      timeServerUrls: [],
-      onLog: (level, message, [err, ctx]) =>
-          _appendLog(level.name, message, err),
-    ));
-    storagePlugin = contextStoreStoragePlugin(contextStore);
-    _appendLog('info', 'Storage: ContextStore (persistent)');
-  } catch (e) {
+  if (kIsWeb) {
     storagePlugin = memoryStorageMorphPlugin();
-    _appendLog('warn', 'Storage: fallback to in-memory — ContextStore init failed', e);
+    _appendLog('info', 'Storage: in-memory (web — ContextStore requires user identity)');
+  } else {
+    try {
+      final contextStore = await ContextStore.create(ContextStoreOptions(
+        onRequestServerTime: (_, __) async => null,
+        timeServerUrls: [],
+        onLog: (level, message, [err, ctx]) =>
+            _appendLog(level.name, message, err),
+      ));
+      storagePlugin = contextStoreStoragePlugin(contextStore);
+      _appendLog('info', 'Storage: ContextStore (persistent)');
+    } catch (e) {
+      storagePlugin = memoryStorageMorphPlugin();
+      _appendLog('warn', 'Storage: fallback to in-memory — ContextStore init failed', e);
+    }
   }
 
   final options = MorphOptions(
@@ -95,7 +122,10 @@ Future<Map<String, String>> _buildVariables() async {
 
   // On Android emulators, localhost refers to the emulator's own loopback.
   // Use 10.0.2.2 to reach the host machine's localhost instead.
-  final host = Platform.isAndroid ? '10.0.2.2' : 'localhost';
+  // On web (Chrome), localhost is always correct since the browser runs on the host.
+  final host = (!kIsWeb && defaultTargetPlatform == TargetPlatform.android)
+      ? '10.0.2.2'
+      : 'localhost';
   final keycloakBase =
       'http://$host:8080/realms/morph/protocol/openid-connect';
   final mockApiBase = 'http://$host:3000';
@@ -126,8 +156,8 @@ Future<Map<String, String>> _buildVariables() async {
     'pocGoogleTokenEndpoint': 'https://oauth2.googleapis.com/token',
     'googleClientId': const String.fromEnvironment('GOOGLE_CLIENT_ID'),
     'googleClientSecret': const String.fromEnvironment('GOOGLE_CLIENT_SECRET'),
-    // OAuth redirect — custom scheme handled by app_links.
-    'oauthCallbackUri': kOAuthCallbackUri,
+    // OAuth redirect — HTTP redirect on web, custom scheme on mobile/desktop.
+    'oauthCallbackUri': kIsWeb ? kWebOAuthCallbackUri : kOAuthCallbackUri,
   };
 }
 
