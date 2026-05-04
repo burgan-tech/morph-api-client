@@ -184,11 +184,12 @@ final class MorphRuntime {
           decodeError = e is Exception ? e.toString() : '$e';
         }
       }
-      if (set?.refreshToken != null &&
-          refreshFormat == 'jwt' &&
-          set!.refreshToken!.split('.').length >= 2) {
+      final refreshTok = set?.refreshToken;
+      if (refreshTok != null &&
+          refreshTok.isNotEmpty &&
+          refreshFormat == 'jwt') {
         try {
-          final rp = decodeJwtPayload(set.refreshToken!);
+          final rp = decodeJwtPayload(refreshTok);
           final rj = rp['exp'];
           refreshJwtExp = rj is int
               ? rj
@@ -208,7 +209,7 @@ final class MorphRuntime {
           contextKey: ref.context.key,
           grantHint: ref.context.delegateMetadata?.grantHint,
           hasAccessToken: hasAccessToken,
-          hasRefreshToken: set?.refreshToken != null && set!.refreshToken!.isNotEmpty,
+          hasRefreshToken: set?.refreshToken?.isNotEmpty ?? false,
           accessLikelyValid: hasAccessToken && (exp == null || exp > now),
           expiresAt: exp,
           jwtExp: jwtExp,
