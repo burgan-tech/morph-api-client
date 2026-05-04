@@ -37,18 +37,28 @@ void main() async {
         oauthMessage =
             'OAuth complete: ${result.status}${result.message != null ? ' — ${result.message}' : ''}';
         // ignore: avoid_print
-        print('[morph-poc] completeOAuthCallback result: ${result.status} ${result.message}');
-      } catch (e) {
+        print('[morph-poc] completeOAuthCallback DONE: ${result.status} / ${result.message}');
+      } catch (e, st) {
         oauthMessage = 'OAuth callback error: $e';
         // ignore: avoid_print
-        print('[morph-poc] completeOAuthCallback ERROR: $e');
+        print('[morph-poc] completeOAuthCallback THREW: $e\n$st');
       }
+    } else {
+      // ignore: avoid_print
+      print('[morph-poc] no code/state in URL — skipping completeOAuthCallback');
     }
   }
 
   // ignore: avoid_print
-  print('[morph-poc] runApp — oauthMessage=$oauthMessage');
-  runApp(MorphPocApp(morph: morph, initialMessage: oauthMessage));
+  print('[morph-poc] calling runApp — oauthMessage=$oauthMessage');
+  try {
+    runApp(MorphPocApp(morph: morph, initialMessage: oauthMessage));
+    // ignore: avoid_print
+    print('[morph-poc] runApp returned (Flutter engine started)');
+  } catch (e, st) {
+    // ignore: avoid_print
+    print('[morph-poc] runApp THREW: $e\n$st');
+  }
 }
 
 class MorphPocApp extends StatefulWidget {

@@ -45,16 +45,27 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _init() async {
-    await _refreshStatus();
-    final cfg = await loadPocSimulation(getMockApiBase());
-    if (mounted) setState(() => _simCfg = cfg);
+    try {
+      print('[morph-poc] _init start');
+      await _refreshStatus();
+      print('[morph-poc] _init: loading sim config…');
+      final cfg = await loadPocSimulation(getMockApiBase());
+      print('[morph-poc] _init: sim config loaded (${cfg.steps.length} steps)');
+      if (mounted) setState(() => _simCfg = cfg);
+    } catch (e, st) {
+      print('[morph-poc] _init THREW: $e\n$st');
+      if (mounted) setState(() => _message = 'Init error: $e');
+    }
   }
 
   Future<void> _refreshStatus() async {
     try {
+      print('[morph-poc] _refreshStatus start');
       final status = await _morph.getTokenStatus();
+      print('[morph-poc] _refreshStatus: ${status.length} entries — ${status.map((s) => "${s.authId}:${s.hasAccessToken ? 'token' : 'none'}").join(", ")}');
       if (mounted) setState(() => _tokenStatus = status);
-    } catch (e) {
+    } catch (e, st) {
+      print('[morph-poc] _refreshStatus THREW: $e\n$st');
       _setMessage('Error refreshing status: $e');
     }
   }
@@ -233,20 +244,29 @@ class _HomeScreenState extends State<HomeScreen> {
                 )
               else
                 ..._byProvider.entries.map((entry) {
-                  return _ProviderSection(
-                    providerKey: entry.key,
-                    rows: entry.value,
-                    busy: _busy,
-                    morph: _morph,
-                    actionsForRow: _actionsForRow,
-                    onExchange: _runExchange,
-                    onConfigTap: () => _openProviderConfig(entry.key),
-                    onJwtTap: (s) => showModalBottomSheet(
-                      context: context,
-                      isScrollControlled: true,
-                      builder: (_) => TokenClaimsSheet(status: s),
-                    ),
-                  );
+                  try {
+                    return _ProviderSection(
+                      providerKey: entry.key,
+                      rows: entry.value,
+                      busy: _busy,
+                      morph: _morph,
+                      actionsForRow: _actionsForRow,
+                      onExchange: _runExchange,
+                      onConfigTap: () => _openProviderConfig(entry.key),
+                      onJwtTap: (s) => showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        builder: (_) => TokenClaimsSheet(status: s),
+                      ),
+                    );
+                  } catch (e, st) {
+                    print('[morph-poc] _ProviderSection build THREW for ${entry.key}: $e\n$st');
+                    return Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Text('UI error (${entry.key}): $e',
+                          style: const TextStyle(color: Colors.red, fontSize: 11)),
+                    );
+                  }
                 }),
 
               // ── Mock API ──
