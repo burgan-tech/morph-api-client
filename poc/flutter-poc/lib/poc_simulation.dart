@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+import 'package:meta/meta.dart';
 import 'package:morph_core/morph_core.dart';
 
 // ---------------------------------------------------------------------------
@@ -73,6 +74,23 @@ final class PocSimStepResult {
   }
 }
 
+/// When an auto-simulation step returns [PocSimStepResult.status] `AUTH`, decide
+/// whether to stop the loop (stale Keycloak session). Kept pure for unit tests.
+bool isPocSessionDeadStop({
+  required PocSimStepResult result,
+  required PocSimStep step,
+  required List<String> sessionDeadAuthIds,
+}) {
+  if (result.status != 'AUTH') return false;
+  final isSessionDead = sessionDeadAuthIds.any(
+    (id) => step is PocSimHostStep && step.auth == id,
+  );
+  final detail = result.detail ?? '';
+  return isSessionDead &&
+      (detail.contains('invalid_grant') ||
+          detail.contains('Token is not active'));
+}
+
 // ---------------------------------------------------------------------------
 // Config loader
 // ---------------------------------------------------------------------------
@@ -93,10 +111,16 @@ class PocSimulationConfig {
 
 Future<PocSimulationConfig> loadPocSimulation(String mockApiBase) async {
   final raw = await rootBundle.loadString('assets/poc-simulation.json');
+  return parsePocSimulationJson(raw, mockApiBase);
+}
+
+/// Parses the PoC simulation document (same shape as [assets/poc-simulation.json]).
+/// [mockApiFallback] is used when the document omits `mockApi.baseUrl`.
+PocSimulationConfig parsePocSimulationJson(String raw, String mockApiFallback) {
   final json = jsonDecode(raw) as Map<String, dynamic>;
 
   final mockApi = (json['mockApi'] as Map<String, dynamic>?) ?? {};
-  final baseUrl = (mockApi['baseUrl'] as String?) ?? mockApiBase;
+  final baseUrl = (mockApi['baseUrl'] as String?) ?? mockApiFallback;
 
   final sessionDeadCheck =
       (json['sessionDeadCheck'] as Map<String, dynamic>?) ?? {};
@@ -185,10 +209,15 @@ Future<PocSimStepResult> runPocSimStep(
 }
 
 Future<PocSimStepResult> _runFetch(
-    PocSimFetchStep step, String mockApiBase) async {
+  PocSimFetchStep step,
+  String mockApiBase, [
+  http.Client? clientOverride,
+]) async {
   final url = '$mockApiBase${step.path}';
+  final client = clientOverride ?? http.Client();
+  final ownsClient = clientOverride == null;
   try {
-    final res = await http
+    final res = await client
         .get(Uri.parse(url))
         .timeout(const Duration(seconds: 10));
     final expectedStatus = step.expectStatus;
@@ -210,8 +239,19 @@ Future<PocSimStepResult> _runFetch(
   } catch (e) {
     return PocSimStepResult(
         label: step.label, status: 'NET', detail: e.toString());
+  } finally {
+    if (ownsClient) client.close();
   }
 }
+
+/// Calls [_runFetch] with an injected HTTP client for unit tests.
+@visibleForTesting
+Future<PocSimStepResult> runPocSimFetchForTesting(
+  PocSimFetchStep step,
+  String mockApiBase,
+  http.Client httpClient,
+) =>
+    _runFetch(step, mockApiBase, httpClient);
 
 Future<PocSimStepResult> _runHost(
     MorphClient morph, PocSimHostStep step) async {

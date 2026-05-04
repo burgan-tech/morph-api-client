@@ -32,6 +32,24 @@ Test users in Keycloak:
 
 ---
 
+## Flutter PoC (`poc/flutter-poc`)
+
+The Flutter sample mirrors **`poc/ts-vue`** against the **same** Keycloak (8080) and Mock API (3000). Issue [#27](https://github.com/burgan-tech/morph-api-client/issues/27) / PR [#28](https://github.com/burgan-tech/morph-api-client/pull/28): grouped token status, dynamic actions from `grantHint`, mock-API bottom sheet + HTTP trace, provider metadata sheet, and **`docs/poc/poc-simulation.json`** bundled as **`assets/poc-simulation.json`**.
+
+| Topic | Flutter notes |
+|--------|----------------|
+| Run (Chrome + backends) | From `poc/flutter-poc`: `./run_web.sh` starts Keycloak, mock-api, and Flutter web on **localhost:4200** (defaults to **`--profile`**). Flags: `--no-keycloak`, `--no-mock-api`, `--debug`. From repo root Keycloak compose path is **`poc/keycloak`** (not `flutter-poc/poc/keycloak`). |
+| OAuth on web | Redirect **`http://localhost:4200/`** is registered in **`poc/keycloak/morph-realm.json`**. Use **`webOnlyWindowName: '_self'`** so login stays in one tab. |
+| CORS | Keycloak clients **`morph-login`**, **`morph-device`**, **`morph-session`** need **`webOrigins`** including **`http://localhost:4200`** so browser token `POST` succeeds (not only the login client). |
+| Storage | **Web:** in-memory tokens for the PoC (session-scoped Keycloak tokens vs ContextStore **user** identity — see [dart-parity.md](dart-parity.md)). **iOS/Android/desktop:** **ContextStore** via **`morph_core_storage`** when initialization succeeds. |
+| Simulation UI | **Run simulation** runs the auto-step list on demand (Vue uses a timed tick by default). Session-dead stopping uses the same JSON `sessionDeadCheck` idea; see [poc/simulation.md](poc/simulation.md). |
+| Tests | `cd poc/flutter-poc && flutter test` — parser, session-dead helper, mocked HTTP fetch, real asset load. |
+| Deeper detail | [dart-parity.md](dart-parity.md); app-specific **`poc/flutter-poc/README.md`** (Android emulator host, secrets, web troubleshooting). |
+
+Then continue with Vue flow below, or use Flutter for the same conceptual steps (acquire device token, Keycloak login, exchange, mock API, simulation).
+
+---
+
 ## The Home Page
 
 Open **http://127.0.0.1:5173/** in your browser. The Home page has four main sections:

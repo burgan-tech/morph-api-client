@@ -53,17 +53,13 @@ class _SimulationPanelState extends State<SimulationPanel> {
       setState(() => _results.add(result));
 
       // Session dead check
-      if (result.status == 'AUTH') {
-        final detail = result.detail ?? '';
-        final isSessionDead = widget.cfg.sessionDeadAuthIds.any(
-          (id) => step is PocSimHostStep && step.auth == id,
-        );
-        if (isSessionDead &&
-            (detail.contains('invalid_grant') ||
-                detail.contains('Token is not active'))) {
-          setState(() => _sessionDeadMessage = widget.cfg.sessionDeadMessage);
-          break;
-        }
+      if (isPocSessionDeadStop(
+        result: result,
+        step: step,
+        sessionDeadAuthIds: widget.cfg.sessionDeadAuthIds,
+      )) {
+        setState(() => _sessionDeadMessage = widget.cfg.sessionDeadMessage);
+        break;
       }
     }
 
