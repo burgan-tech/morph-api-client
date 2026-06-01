@@ -82,9 +82,8 @@ bool isPocSessionDeadStop({
   required List<String> sessionDeadAuthIds,
 }) {
   if (result.status != 'AUTH') return false;
-  final isSessionDead = sessionDeadAuthIds.any(
-    (id) => step is PocSimHostStep && step.auth == id,
-  );
+  final isSessionDead =
+      step is PocSimHostStep && sessionDeadAuthIds.contains(step.auth);
   final detail = result.detail ?? '';
   return isSessionDead &&
       (detail.contains('invalid_grant') ||
@@ -199,10 +198,11 @@ PocSimStep? _parseStep(Map<String, dynamic> m) {
 Future<PocSimStepResult> runPocSimStep(
   MorphClient morph,
   PocSimulationConfig cfg,
-  PocSimStep step,
-) async {
+  PocSimStep step, [
+  http.Client? httpClient,
+]) async {
   return switch (step) {
-    PocSimFetchStep s => _runFetch(s, cfg.mockApiBaseUrl),
+    PocSimFetchStep s => _runFetch(s, cfg.mockApiBaseUrl, httpClient),
     PocSimHostStep s => _runHost(morph, s),
     PocSimLogoutStep s => _runLogout(morph, s),
   };
