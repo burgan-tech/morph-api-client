@@ -47,10 +47,16 @@ final class TokenLifecycle implements AuthPlugin {
   final Map<String, Future<dynamic>> _locks = {};
   final Map<String, Future<void>> _inflightSubmit = {};
 
+  /// In-memory cache of the last persisted token set per authId.
+  /// Allows [resolveAccessToken] to return immediately on the hot path without
+  /// acquiring the per-auth lock or hitting storage on every concurrent request.
+  final Map<String, TokenSet> _tokenCache = {};
+
   @override
   void dispose() {
     _locks.clear();
     _inflightSubmit.clear();
+    _tokenCache.clear();
   }
 
   void _doLog(String level, String msg, [Object? err, Map<String, Object?>? ctx]) {
@@ -91,8 +97,10 @@ final class TokenLifecycle implements AuthPlugin {
   Future<void> _persist(String authId, CtxRef ref, TokenSet? set) async {
     if (set != null) {
       await vault.save(authId, ref.provider, ref.context, set);
+      _tokenCache[authId] = set; // warm fast-path cache
     } else {
       await vault.clear(authId, ref.provider, ref.context);
+      _tokenCache.remove(authId); // invalidate on clear
     }
     opts.callbacks.onTokenChange?.call(authId, set);
   }
@@ -336,8 +344,14 @@ final class TokenLifecycle implements AuthPlugin {
       });
 
   @override
-  Future<String> resolveAccessToken(String aid, CtxRef ref, String mode) =>
-      _withLock<String>(aid, () => _resolveAccessInner(aid, ref, mode));
+  Future<String> resolveAccessToken(String aid, CtxRef ref, String mode) async {
+    // Fast path: return cached token immediately if still valid (skips lock + storage).
+    final cached = _tokenCache[aid];
+    if (cached != null && !isExpired(cached.expiresAt, 30)) {
+      return cached.accessToken;
+    }
+    return _withLock<String>(aid, () => _resolveAccessInner(aid, ref, mode));
+  }
 
   Future<String> _resolveAccessInner(String aid, CtxRef ref, String mode) async {
     var set = await loadTokens(aid, ref);

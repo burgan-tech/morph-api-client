@@ -113,10 +113,14 @@ final class HostPipeline {
     final timeoutMs = parseDurationMs(timeout, 30000);
 
     String? serialized;
+    List<int>? bodyBytes;
     if (body == null) {
       serialized = null;
-    } else if (body is String || body is List<int>) {
-      serialized = body.toString();
+    } else if (body is List<int>) {
+      // Raw binary — keep as bytes, do NOT call toString() which produces "[1, 2, 3]".
+      bodyBytes = body;
+    } else if (body is String) {
+      serialized = body;
     } else {
       serialized = jsonEncode(body);
     }
@@ -129,21 +133,26 @@ final class HostPipeline {
       headers = {...?headers, 'X-JWS-Signature': sig};
     }
 
+    // Merge host-level config headers (interpolated from variables), then
+    // request-time headers verbatim — never interpolate them because they may
+    // contain $ characters (e.g. cryptographic signatures, JWS tokens).
     final mergedHost = interpolateRecord(host.headers, _variables);
     final headerMap = <String, String>{
       ...?mergedHost,
-      ...?_interpolateHeaders(headers),
+      ...?headers,
       headerCfg.name: '${headerCfg.scheme} $token',
     };
 
     Future<http.Response> once(Map<String, String> hdrs) async {
       final req = http.Request(method, uri);
       req.headers.addAll(hdrs);
-      final b = serialized;
-      req.bodyBytes = utf8.encode(b ?? '');
-      if (serialized != null) {
+      if (bodyBytes != null) {
+        req.bodyBytes = bodyBytes;
+      } else if (serialized != null) {
+        req.bodyBytes = utf8.encode(serialized);
         req.headers['content-type'] = req.headers['content-type'] ?? 'application/json;charset=utf-8';
       }
+      // GET/HEAD with no body: bodyBytes stays unset → no Content-Length: 0 injected.
       return _client.send(req).timeout(Duration(milliseconds: timeoutMs)).then(http.Response.fromStream);
     }
 

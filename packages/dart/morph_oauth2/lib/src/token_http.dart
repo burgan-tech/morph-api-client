@@ -20,10 +20,19 @@ final class OAuthTokenResponse {
 OAuthTokenResponse oauthResponseFromJson(dynamic json) {
   if (json is! Map) throw FormatException('OAuth token JSON must be object');
   final m = Map<String, dynamic>.from(json.cast<dynamic, dynamic>());
+  final rawExp = m['expires_in'];
+  final int? expiresIn;
+  if (rawExp is num) {
+    expiresIn = rawExp.toInt();
+  } else if (rawExp is String) {
+    expiresIn = int.tryParse(rawExp);
+  } else {
+    expiresIn = null;
+  }
   return OAuthTokenResponse(
     accessToken: m['access_token'] as String? ?? '',
     refreshToken: m['refresh_token'] as String?,
-    expiresIn: (m['expires_in'] as num?)?.toInt(),
+    expiresIn: expiresIn,
     tokenType: m['token_type'] as String?,
   );
 }

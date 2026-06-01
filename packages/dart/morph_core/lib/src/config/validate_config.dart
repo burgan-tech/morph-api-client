@@ -98,6 +98,29 @@ ResolvedMorphConfig validateAndIndexConfig(dynamic raw) {
     }
   }
 
+  // DFS cycle detection — circular exchangeSource chains (A→B→A) would deadlock
+  // at runtime via nested _withLock calls in TokenLifecycle.resolveAccessToken.
+  final _dfsSeen = <String>{};
+  bool _hasCycle(String node, Set<String> inStack) {
+    if (inStack.contains(node)) return true;
+    if (_dfsSeen.contains(node)) return false;
+    _dfsSeen.add(node);
+    inStack.add(node);
+    final ctx = contextByAuthId[node];
+    if (ctx != null) {
+      for (final src in normalizeExchangeSourcesFromTokenBlock(ctx.context.token)) {
+        if (_hasCycle(src, {...inStack})) return true;
+      }
+    }
+    return false;
+  }
+  for (final authId in contextByAuthId.keys) {
+    if (_hasCycle(authId, {})) {
+      errors.add('Circular token.exchangeSource dependency detected involving "$authId"');
+      break;
+    }
+  }
+
   final rootCallback = config.rootCallbackAuthId?.trim();
   if (config.rootCallbackAuthId != null) {
     if (rootCallback == null || rootCallback.isEmpty) {

@@ -22,7 +22,7 @@ String buildOAuth2AuthorizationUrl({
   if (scopes != null && scopes.isNotEmpty) {
     q['scope'] = scopes.join(' ');
   }
-  final buf = StringBuffer('$u?');
+  final buf = StringBuffer(u)..write(u.contains('?') ? '&' : '?');
   var first = true;
   void add(String k, String v) {
     if (!first) buf.write('&');
