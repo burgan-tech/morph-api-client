@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:morph_core/morph_core.dart';
 
 import '../poc_simulation.dart';
@@ -24,6 +25,13 @@ class _SimulationPanelState extends State<SimulationPanel> {
   bool _probe404Enabled = false;
   final List<PocSimStepResult> _results = [];
   String _sessionDeadMessage = '';
+  final http.Client _httpClient = http.Client();
+
+  @override
+  void dispose() {
+    _httpClient.close();
+    super.dispose();
+  }
 
   List<PocSimStep> get _autoSteps => widget.cfg.steps
       .where((s) =>
@@ -47,7 +55,7 @@ class _SimulationPanelState extends State<SimulationPanel> {
 
     for (final step in _autoSteps) {
       if (!mounted) break;
-      final result = await runPocSimStep(widget.morph, widget.cfg, step);
+      final result = await runPocSimStep(widget.morph, widget.cfg, step, _httpClient);
 
       if (!mounted) break;
       setState(() => _results.add(result));
