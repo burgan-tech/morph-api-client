@@ -226,6 +226,4 @@ final class HostPipeline {
     );
   }
 
-  Map<String, String>? _interpolateHeaders(Map<String, String>? h) =>
-      interpolateRecord(h, _variables);
 }
