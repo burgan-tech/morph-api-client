@@ -58,7 +58,8 @@ All token endpoint calls (authorization_code, refresh_token, client_credentials,
 
 ### autoAcquireNonInteractive
 
-When `MorphOptions.autoAcquireNonInteractive` is `true` and `onAuthRequired` fires for a context with `interaction: 'non-interactive'`, the SDK automatically calls `acquireWithClientCredentials` for that context. This avoids requiring the host app to handle device-token acquisition in every `onAuthRequired` implementation.
+When `oauth2Plugin({ autoAcquireNonInteractive: true })` is set and `onAuthRequired` fires for a context with `interaction: 'non-interactive'`, the plugin automatically calls `acquireWithClientCredentials` for that context. This avoids requiring the host app to handle device-token acquisition in every `onAuthRequired` callback.
+When `MorphOptions.autoAcquireNonInteractive` is `true` and `onAuthRequired` fires for a context with `interaction: 'non-interactive'`, the SDK automatically calls `acquire` for that context. This avoids requiring the host app to handle device-token acquisition in every `onAuthRequired` implementation.
 
 ### Proactive vs. Reactive Refresh
 
@@ -94,7 +95,7 @@ Storage keys support runtime variables that are resolved when reading or writing
 
 ## Token Storage
 
-Tokens are stored using the `StorageProvider` interface injected at init time. The SDK passes the full `StorageConfig` from the JSON config to every call, so the delegate has all the context it needs.
+Tokens are stored using the `StorageProvider` interface registered by a storage plugin (e.g. `browserStoragePlugin()`) during initialization. The SDK passes the full `StorageConfig` from the JSON config to every call, so the delegate has all the context it needs. See [Writing Plugins](writing-plugins.md) for how storage plugins work.
 
 ### Storage Flow
 

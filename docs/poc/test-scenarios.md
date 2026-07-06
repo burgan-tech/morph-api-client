@@ -197,7 +197,7 @@ curl -H "Authorization: Bearer $TOKEN_1FA" http://localhost:3000/profile
 2. Make request with `{ auth: 'morph-auth/device' }`
 3. SDK follows `recoveryPolicy.onUnauthorized = 'delegate'`
 4. `onAuthRequired` fires with `interaction: 'non-interactive'`
-5. Host app calls `morph.auth('morph-auth/device').acquireWithClientCredentials()`
+5. Host app calls `morph.auth('morph-auth/device').acquire()`
 
 ### 5c: Refresh Failure → Delegate (1FA context)
 

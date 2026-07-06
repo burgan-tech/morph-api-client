@@ -9,7 +9,10 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "morph-api-client": "file:../../core",
+    "@morph/core": "file:../../packages/ts/core",
+    "@morph/oauth2": "file:../../packages/ts/oauth2",
+    "@morph/browser-storage": "file:../../packages/ts/browser-storage",
+    "@morph/logger": "file:../../packages/ts/logger",
     "vue": "^3.5.30",
     "vue-router": "^4.5.0"
   },

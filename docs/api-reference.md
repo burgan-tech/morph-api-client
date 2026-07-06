@@ -17,27 +17,48 @@ The main entry point. Created via the static `init` factory.
 Creates and configures the SDK. Validates the config, initializes all providers, auth contexts, hosts, refresh schedulers, and session monitors.
 
 ```typescript
-import { MorphClient } from 'morph-api-client';
+import { MorphClient } from '@morph/core';
+import { oauth2Plugin } from '@morph/oauth2';
+import { browserStoragePlugin } from '@morph/browser-storage';
+import { loggerPlugin } from '@morph/logger';
 import config from './morph-config.json';
 
-const tokenStore = new Map<string, string>();
+const logger = loggerPlugin({ level: 'info' });
 
 const morph = MorphClient.init(config, {
 
-  storage: {
-    read: async (key, storageConfig) => tokenStore.get(key) ?? null,
-    write: async (key, value, storageConfig) => { tokenStore.set(key, value); },
-    delete: async (key, storageConfig) => { tokenStore.delete(key); },
-    deleteByPrefix: async (prefix, storageConfig) => {
-      for (const k of tokenStore.keys()) if (k.startsWith(prefix)) tokenStore.delete(k);
-    },
-  },
+  plugins: [
+    logger,
+    oauth2Plugin({
+      logger,
+      storage: browserStoragePlugin({ prefix: 'myapp:tk:', logger }),
+      callbacks: {
+        onAuthRequired: (authId, metadata) => {
+          if (metadata.interaction === 'non-interactive') {
+            morph.auth(authId).acquireWithClientCredentials();
+          } else if (metadata.interaction === 'interactive') {
+            router.navigate('/login', { authId });
+          }
+        },
+        onTokenChange: (authId, tokens) => {
+          if (authId === 'burgan-auth/1fa') setIsLoggedIn(!!tokens);
+          if (authId === 'burgan-auth/2fa') setCanTransfer(!!tokens);
+        },
+      },
+      variables: {
+        deviceClientId: 'abc-123',
+        deviceId: getDeviceId(),
+        installationId: getInstallationId(),
+      },
+      autoAcquireNonInteractive: true,
+    }),
+  ],
 
   callbacks: {
     onAuthRequired: (authId, metadata) => {
       // authId format: 'provider/context', e.g. 'burgan-auth/device'
       if (metadata.interaction === 'non-interactive') {
-        morph.auth(authId).acquireWithClientCredentials();
+        morph.auth(authId).acquire();
 
       } else if (metadata.interaction === 'interactive') {
         router.navigate('/login', { authId, workflow: metadata.workflow });
@@ -73,42 +94,11 @@ const morph = MorphClient.init(config, {
         'api.burgan.com.tr':     ['sha256/AAAA...', 'sha256/BBBB...'],
         'payment.burgan.com.tr': ['sha256/CCCC...', 'sha256/DDDD...'],
       };
-
-      // mTLS client cert from platform keychain (only for hosts that require it)
-      const mtlsCert = ['api.burgan.com.tr', 'payment.burgan.com.tr'].includes(hostname)
-        ? { cert: await keychain.getCert(), key: await keychain.getKey() }
-        : undefined;
-
       return {
         certificatePins: PINS[hostname] ?? undefined,
-        clientCertificate: mtlsCert,
         proxy: __DEV__ ? { url: 'http://localhost:8888' } : undefined,
       };
     },
-  },
-
-  // --- Data ---
-
-  variables: {
-    deviceClientId: 'abc-123',
-    '1faClientId': 'def-456',
-    googleClientId: '789.apps.googleusercontent.com',
-    deviceId: getDeviceId(),
-    installationId: getInstallationId(),
-    appVersion: '2.4.1',
-  },
-
-  // --- Functional delegates (continued) ---
-
-  onTokenExchange: async (grant) => {
-    if (grant.type === 'token_exchange' && grant.authId === 'burgan-auth/2fa') {
-      const res = await fetch('/api/custom-step-up', {
-        headers: { 'Authorization': `Bearer ${grant.sourceToken}` },
-        method: 'POST',
-      });
-      return await res.json(); // { accessToken, refreshToken }
-    }
-    return null; // standard OAuth2 exchange
   },
 
   onSignPayload: async (payload, authId) => {
@@ -118,16 +108,17 @@ const morph = MorphClient.init(config, {
   onDecryptResponse: async (encryptedBody, authId) => {
     return await cryptoModule.decrypt(encryptedBody, decryptionKey);
   },
-
-  onLog: (level, message, error, context) => {
-    console.log(`[morph:${level}] ${message}`, context ?? '');
-  },
 });
 ```
 
 Throws `ConfigValidationError` if the config is invalid.
 
-Include **`deviceId`** and **`installationId`** in `variables` when the JSON config interpolates them (e.g. `X-Device-Id`, `X-Installation-Id`). On mobile, `installationId` is usually a GUID created on first install after download; the Vue web PoC simulates that with browser-local and session-scoped ids (see `poc/ts-vue/README.md`).
+**What goes where:**
+- **Logger** (`loggerPlugin({ ... })`): Create once, pass to every plugin via `logger` option. Controls log level, prefix, and output format.
+- **Plugin options** (`oauth2Plugin({ ... })`): `logger`, `storage`, `callbacks`, `variables`, `onTokenExchange`, `onClientJwtAssertion`, `autoAcquireNonInteractive`
+- **Core options** (`MorphOptions`): `onLog`, `onHttpTrace`, `onSignPayload`, `onDecryptResponse`, `networkDelegate`, shared `variables` (like `deviceId`)
+
+Include **`deviceId`** and **`installationId`** in `variables` when the JSON config interpolates them (e.g. `X-Device-Id`, `X-Installation-Id`). On mobile, `installationId` is usually a GUID created on first install after download; the Vue web PoC simulates that with browser-local and session-scoped ids.
 
 ---
 
@@ -383,12 +374,12 @@ await morph.auth('edevlet-auth/edevlet').submitCode(code, { codeVerifier: pkceVe
 
 ---
 
-### auth.acquireWithClientCredentials()
+### auth.acquire()
 
 For non-interactive contexts. The SDK calls the token endpoint with `clientId` + `clientSecret` from config (resolved via `$variable`). Resulting tokens are stored in **this** context.
 
 ```typescript
-await morph.auth('burgan-auth/device').acquireWithClientCredentials();
+await morph.auth('burgan-auth/device').acquire();
 // SDK calls POST with grant_type=client_credentials
 //   client_id=<config.clientId>, client_secret=<config.clientSecret>,
 //   audience=<config.audience>
@@ -470,7 +461,7 @@ await morph.auth('burgan-auth/1fa').setTokens({
 });
 ```
 
-For normal flows, prefer `submitCode()`, `acquireWithClientCredentials()`, or `exchangeToken()` — they handle the token endpoint call, `onTokenExchange` delegate check, and storage atomically.
+For normal flows, prefer `submitCode()`, `acquire()`, or `exchangeToken()` — they handle the token endpoint call, `onTokenExchange` delegate check, and storage atomically.
 
 ---
 
@@ -521,21 +512,21 @@ async function getInitialRoute(): Promise<string> {
 const isLoggedIn = await morph.auth('burgan-auth/1fa').hasValidToken();
 ```
 
-For synchronous UI state (render loops, build methods), use the `onTokenChange` callback to maintain local state:
+For synchronous UI state (render loops, build methods), pass `onTokenChange` to `oauth2Plugin`:
 
 ```typescript
-// In your app state / store
 let isLoggedIn = false;
 let canTransfer = false;
 
-// onTokenChange keeps these in sync reactively
-callbacks: {
-  onTokenChange: (authId, tokens) => {
-    if (authId === 'burgan-auth/1fa') isLoggedIn = !!tokens;
-    if (authId === 'burgan-auth/2fa') canTransfer = !!tokens;
+oauth2Plugin({
+  storage: browserStoragePlugin('myapp:tk:'),
+  callbacks: {
+    onTokenChange: (authId, tokens) => {
+      if (authId === 'burgan-auth/1fa') isLoggedIn = !!tokens;
+      if (authId === 'burgan-auth/2fa') canTransfer = !!tokens;
+    },
   },
-}
-
+})
 // Then in UI: use isLoggedIn / canTransfer (sync, always fresh)
 ```
 
@@ -671,44 +662,38 @@ const mainApi: HostConfig = {
 
 ```typescript
 interface MorphOptions {
-  // Data
-  storage: StorageProvider;
+  // Plugins — declare capabilities at init time
+  plugins: MorphPlugin[];
   variables?: Record<string, string>;
 
-  // Notifications (void callbacks — inform the host app)
-  callbacks: MorphCallbacks;
-
-  // Functional delegates (return values — SDK needs the result)
+  // Core-level delegates (shared, not plugin-specific)
   networkDelegate?: NetworkDelegate;
-  onTokenExchange?: (grant: TokenExchangeGrant) => Promise<TokenSet | null>;
   onSignPayload?: (payload: string, authId: string) => Promise<string>;
   onDecryptResponse?: (encryptedBody: string, authId: string) => Promise<string>;
   onLog?: (level: 'debug' | 'info' | 'warn' | 'error', message: string, error?: Error, context?: Record<string, unknown>) => void;
-  /** After each `host().get/post/...` attempt (401 refresh retry = second event). */
   onHttpTrace?: (event: MorphHttpTraceEvent) => void;
-
-  /** When `clientAuth` is `private_key_jwt`, return a signed client assertion JWT for the token endpoint. If omitted and `clientSecret` is present, `client_secret` is used instead. */
-  onClientJwtAssertion?: (authId: string) => Promise<string | null>;
-  /** Automatically acquire client_credentials for non-interactive contexts on `onAuthRequired`. Default false. */
-  autoAcquireNonInteractive?: boolean;
 }
 ```
 
-**Data:**
-- `storage` — Token storage delegate. SDK provides `createBrowserSessionStorage(prefix?)` and `createBrowserLocalStorage(prefix?)` for web apps.
-- `variables` — Variable map for `$variable` interpolation in config.
+**Plugins:**
+- `plugins` — Array of `MorphPlugin` instances. Plugins declare `provides` and `requires` for automatic dependency resolution (topological sort). The combined set must include exactly one plugin that calls `ctx.provideAuth()` and one that calls `ctx.provideStorage()`. Order does not matter. See [Writing Plugins](writing-plugins.md).
+- `variables` — Shared variable map for `$variable` interpolation in config (host headers, etc.). Plugin-specific variables (client secrets) should be passed to the plugin directly.
 
-**Notifications (callbacks):**
-- `callbacks` — Auth lifecycle notifications: `onAuthRequired`, `onLogout`, `onTokenChange`. All `void` — inform the host app, don't return values.
+**Core delegates (shared):**
+- `networkDelegate` -- SSL pins, mTLS cert, proxy per hostname. Lazy, per first request.
+- `onSignPayload` -- JWS signing. Called when `sign: true`. Returns signature string.
+- `onDecryptResponse` -- Response decryption. Called when `encrypted: true`. Returns decrypted plaintext.
+- `onLog` -- Low-level log hook. Prefer `loggerPlugin()` and pass the `logger` instance to each plugin.
+- `onHttpTrace` -- Structured host HTTP trace. Fired once per `fetch()`.
 
-**Functional delegates (SDK needs the result):**
-- `networkDelegate` — SSL pins, mTLS cert, proxy per hostname. Lazy, per first request.
-- `onTokenExchange` — Custom token exchange logic. Return `TokenSet` to override, `null` to let SDK handle it.
-- `onSignPayload` — JWS signing. Called when `sign: true`. Returns signature string → SDK attaches as `X-JWS-Signature`. Throws if missing when `sign: true`.
-- `onDecryptResponse` — Response decryption. Called when `encrypted: true`. Returns decrypted plaintext → SDK parses as JSON. Throws if missing when `encrypted: true`.
-- `onLog` — Log delegate. Omit for silence. The SDK emits **`info`** for successful refresh, client_credentials renewal, token exchange, authorization_code storage, and 401-driven refresh (context includes `authId`). Failures use **`warn`** / **`error`**.
-- `onHttpTrace` — Structured **host HTTP** trace (method, URL, path, `authId`, request/response headers, parsed response body, duration). Fired once per underlying `fetch()` (so a 401 followed by refresh + retry produces **two** events). `Authorization` in `requestHeaders` is redacted (`Bearer <redacted>`). Distinct from `onLog` (human-oriented strings). Omit if you do not need request/response introspection.
-- `onClientJwtAssertion` — Called when `clientAuth` is `private_key_jwt`. Returns a signed JWT client assertion for the token endpoint. When omitted and `clientSecret` is present, the SDK falls back to `client_secret_post`.
+**Logging:** Use `@morph/logger` -- create one `loggerPlugin()` instance and pass it as the `logger` option to `oauth2Plugin`, `browserStoragePlugin`, etc. All plugins route their log output through the shared logger.
+
+**Plugin-level options (passed to each plugin factory):**
+- `logger` -- `MorphPlugin | LogFn` -- the shared logger for this plugin
+- `storage` -- `StorageProvider | MorphPlugin` -- inline storage (oauth2Plugin only)
+- `callbacks` -- `Partial<MorphCallbacks>` -- auth lifecycle (oauth2Plugin only)
+- `variables` -- plugin-specific variables (client secrets, redirect URIs)
+- `onTokenExchange`, `onClientJwtAssertion`, `autoAcquireNonInteractive` -- oauth2Plugin only
 
 ---
 
@@ -735,7 +720,7 @@ interface MorphHttpTraceEvent {
 
 ### MorphCallbacks
 
-All callbacks are `void` — they notify the host app, they don't return values. All receive `authId` in `provider/context` format.
+Passed to `oauth2Plugin({ callbacks })`. All callbacks are `void` and receive `authId` in `provider/context` format. All fields are **optional** -- the plugin provides defaults.
 
 ```typescript
 interface MorphCallbacks {
@@ -745,7 +730,24 @@ interface MorphCallbacks {
 }
 ```
 
+**Defaults (when not overridden):**
+- `onAuthRequired` -- logs via the resolved `logger` at `warn` level (or no-op if no logger)
+- `onLogout` -- logs via the resolved `logger` at `info` level (or no-op if no logger)
+- `onTokenChange` -- not set (no-op)
+
+**Override only what you need:**
+
 ```typescript
+oauth2Plugin({
+  storage: browserStoragePlugin('myapp:tk:'),
+  callbacks: {
+    onLogout: (authId, reason) => {
+      if (reason === 'session_expired') showToast('Session expired.');
+      if (authId === 'burgan-auth/1fa') router.navigate('/login');
+    },
+    onTokenChange: (authId, tokens) => {
+      if (authId === 'burgan-auth/1fa') setIsLoggedIn(!!tokens);
+    },
 const callbacks: MorphCallbacks = {
   onAuthRequired: (authId, metadata) => {
     // authId = 'burgan-auth/device', 'burgan-auth/1fa', 'edevlet-auth/edevlet', etc.
@@ -753,7 +755,7 @@ const callbacks: MorphCallbacks = {
 
     switch (metadata.interaction) {
       case 'non-interactive':
-        morph.auth(authId).acquireWithClientCredentials();
+        morph.auth(authId).acquire();
         break;
       case 'interactive':
         router.navigate('/login', { authId });
@@ -763,21 +765,7 @@ const callbacks: MorphCallbacks = {
         break;
     }
   },
-
-  onLogout: (authId, reason) => {
-    if (reason === 'session_expired') {
-      showToast('Session expired. Please log in again.');
-    }
-    if (authId === 'burgan-auth/1fa') {
-      router.navigate('/login');
-    }
-  },
-
-  onTokenChange: (authId, tokens) => {
-    if (authId === 'burgan-auth/1fa') setIsLoggedIn(!!tokens);
-    if (authId === 'burgan-auth/2fa') setCanTransfer(!!tokens);
-  },
-};
+})
 ```
 
 ---
@@ -799,9 +787,9 @@ interface TokenExchangeGrant {
 ```
 
 ```typescript
-// Provided at init as a functional delegate (not inside callbacks)
-const morph = MorphClient.init(config, {
-  // ...
+// Passed to oauth2Plugin (not MorphOptions)
+oauth2Plugin({
+  storage: browserStoragePlugin('myapp:tk:'),
   onTokenExchange: async (grant) => {
     if (grant.type === 'token_exchange' && grant.authId === 'burgan-auth/2fa') {
       const res = await fetch('/api/custom-step-up', {
@@ -811,9 +799,9 @@ const morph = MorphClient.init(config, {
       const tokens = await res.json();
       return { accessToken: tokens.access_token, refreshToken: tokens.refresh_token };
     }
-    return null; // all other exchanges → let SDK handle standard OAuth2
+    return null; // standard OAuth2 exchange
   },
-});
+})
 ```
 
 ---
@@ -835,7 +823,7 @@ onAuthRequired: (authId, metadata) => {
   // metadata = { workflow: 'step-up-auth', grantHint: 'token_exchange', interaction: 'interactive' }
 
   if (metadata.workflow === 'device-auth') {
-    morph.auth(authId).acquireWithClientCredentials();
+    morph.auth(authId).acquire();
   } else if (metadata.workflow === 'login') {
     router.navigate('/login', { authId });
     // later: morph.auth(authId).submitCode(code)
@@ -864,7 +852,7 @@ interface TokenSet {
 ```
 
 ```typescript
-// Normally handled by submitCode() / acquireWithClientCredentials().
+// Normally handled by submitCode() / acquire().
 // Escape hatch:
 await morph.auth('burgan-auth/1fa').setTokens({
   accessToken: 'eyJhbGciOiJSUzI1NiIs...',
@@ -1030,7 +1018,7 @@ const networkDelegate: NetworkDelegate = {
 Builds the query string for an OAuth 2.0 **authorize** redirect (`client_id`, `redirect_uri`, `response_type`, `scope`, `state`, plus any `extraParams`). Combine with `authorization.endpoint` from config: if `endpoint` is an **absolute** URL, it is used as-is (so authorize still hits the real IdP when `provider.baseUrl` is rewritten for dev token proxying). Optional fields on `AuthContextConfig.authorization`: `responseType`, `extraParams`.
 
 ```typescript
-import { buildOAuth2AuthorizationUrl } from 'morph-api-client';
+import { buildOAuth2AuthorizationUrl } from '@morph/core';
 ```
 
 ---
@@ -1103,7 +1091,7 @@ if (res instanceof AuthError) {
 Thrown when a token endpoint (refresh, client_credentials, authorization_code exchange, token exchange) returns a non-2xx HTTP response.
 
 ```typescript
-import { TokenEndpointError } from 'morph-api-client';
+import { TokenEndpointError } from '@morph/core';
 
 try {
   await morph.auth('morph-auth/1fa').submitCode(code);
@@ -1121,16 +1109,42 @@ try {
 
 ### Browser Storage Factories
 
-Ready-made `StorageProvider` implementations for web apps.
+Ready-made `StorageProvider` implementations for web apps, available as a plugin or standalone factory.
 
 ```typescript
-import { createBrowserSessionStorage, createBrowserLocalStorage } from 'morph-api-client';
+import { MorphClient } from '@morph/core';
+import { oauth2Plugin } from '@morph/oauth2';
+import { browserStoragePlugin } from '@morph/browser-storage';
 
-// sessionStorage — tokens survive SPA reload but not new tabs
-const storage = createBrowserSessionStorage('myapp:tk:');
+// As a plugin (recommended) — order does not matter
+MorphClient.init(config, {
+  plugins: [
+    browserStoragePlugin('myapp:tk:'),           // sessionStorage (default)
+    oauth2Plugin(),
+  ],
+  // ...
+});
 
-// localStorage — tokens persist across tabs and sessions
-const storage = createBrowserLocalStorage('myapp:tk:');
+// localStorage variant
+MorphClient.init(config, {
+  plugins: [
+    browserStoragePlugin('myapp:tk:', 'local'),
+    oauth2Plugin(),
+  ],
+  // ...
+});
+```
+
+Standalone factories are also available for custom plugins or direct dependency injection:
+
+```typescript
+import { createBrowserSessionStorage, createBrowserLocalStorage } from '@morph/browser-storage';
+
+const sessionStore = createBrowserSessionStorage('myapp:tk:');
+const localStore = createBrowserLocalStorage('myapp:tk:');
+
+// Pass directly to oauth2Plugin via explicit DI
+plugins: [oauth2Plugin({ storage: sessionStore })]
 ```
 
 ### OAuth State Helpers
@@ -1138,7 +1152,7 @@ const storage = createBrowserLocalStorage('myapp:tk:');
 Encode/decode `authId` in the OAuth `state` parameter. Used internally by `getAuthorizationUrl` and `completeOAuthCallback`. Exposed for custom flows.
 
 ```typescript
-import { encodeOAuthState, decodeOAuthState } from 'morph-api-client';
+import { encodeOAuthState, decodeOAuthState } from '@morph/core';
 
 const state = encodeOAuthState('morph-auth/2fa'); // 'morph1.eyJhIjo...'
 const decoded = decodeOAuthState(state);          // { authId: 'morph-auth/2fa' }
@@ -1150,7 +1164,7 @@ decodeOAuthState('random-opaque-state');           // null
 Strips OAuth return query params (`code`, `state`, `session_state`, `iss`, `scope`, `error`, `error_description`) from the current browser URL via `history.replaceState`. No-op outside browser.
 
 ```typescript
-import { cleanOAuthReturnFromBrowser } from 'morph-api-client';
+import { cleanOAuthReturnFromBrowser } from '@morph/core';
 cleanOAuthReturnFromBrowser();
 ```
 
@@ -1159,7 +1173,7 @@ cleanOAuthReturnFromBrowser();
 Normalizes IPv6 loopback origins to `http://localhost:PORT` for consistent `redirect_uri` matching.
 
 ```typescript
-import { normalizeLoopbackOrigin } from 'morph-api-client';
+import { normalizeLoopbackOrigin } from '@morph/core';
 normalizeLoopbackOrigin('http://[::1]:5173'); // 'http://localhost:5173'
 normalizeLoopbackOrigin('http://localhost:5173'); // unchanged
 ```

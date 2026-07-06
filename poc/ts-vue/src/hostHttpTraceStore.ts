@@ -1,5 +1,5 @@
 import { shallowRef } from 'vue';
-import type { MorphHttpTraceEvent } from 'morph-api-client';
+import type { MorphHttpTraceEvent } from '@morph/core';
 
 export type HostHttpTraceRow = MorphHttpTraceEvent & { id: string };
 

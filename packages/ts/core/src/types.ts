@@ -1,0 +1,394 @@
+export type LogoutReason = 'user_initiated' | 'unauthorized' | 'refresh_failed' | 'session_expired';
+
+export type InteractionMode = 'interactive' | 'non-interactive' | 'redirect';
+
+export interface DelegateMetadata {
+  workflow: string;
+  grantHint: string;
+  interaction: InteractionMode;
+}
+
+export interface NetworkPolicy {
+  timeout?: string;
+  retry?: { count?: number; delay?: string };
+}
+
+export interface TokenHeaderConfig {
+  name: string;
+  scheme: string;
+}
+
+export interface StorageConfig {
+  scope: string;
+  type: string;
+  protection: string;
+  key: string;
+}
+
+export interface TokenTypeConfig {
+  /** `'jwt'` (default) — SDK decodes claims. `'opaque'` — skip decode, claims will be `null`. */
+  format?: 'jwt' | 'opaque';
+  header?: TokenHeaderConfig;
+  expiryPolicy: string;
+  maxTtl?: string;
+  storage: StorageConfig;
+}
+
+export interface RecoveryPolicy {
+  onUnauthorized?: string;
+  onRefreshFail?: string;
+}
+
+export interface AuthContextConfig {
+  key: string;
+  clientId?: string;
+  clientSecret?: string;
+  clientAuth?: string;
+  audience?: string;
+  identity?: { subject?: string; actor?: string };
+  authorization?: {
+    endpoint: string;
+    redirectUri?: string;
+    /** OAuth authorize `response_type` (default `code`). */
+    responseType?: string;
+    /** Extra query parameters for the authorize request (provider-specific). */
+    extraParams?: Record<string, string>;
+  };
+  token: {
+    endpoint: string;
+    /**
+     * Custom OAuth `grant_type` sent to the token endpoint when calling `acquire`.
+     * Defaults to `client_credentials`. When set to a non-standard value (e.g. a proprietary URN),
+     * `MorphOptions.onCustomGrant` is invoked so the host app can supply additional body fields.
+     */
+    grantType?: string;
+    exchangeEndpoint?: string;
+    /**
+     * Auth id(s) whose access token may be exchanged (RFC 8693) for this context's tokens.
+     * Use an array when this context can be issued from more than one subject token.
+     */
+    exchangeSource?: string | string[];
+  };
+  logout?: { endpoint: string };
+  scopes?: string[];
+  pkce?: { codeChallengeMethod?: string };
+  refreshPolicy?: { strategy?: string; refreshBeforeExpiry?: string };
+  recoveryPolicy?: RecoveryPolicy;
+  delegateMetadata?: DelegateMetadata;
+  sessionPolicy?: Record<string, string>;
+  networkPolicy?: NetworkPolicy;
+  headers?: Record<string, string>;
+  tokenTypes: Record<string, TokenTypeConfig>;
+}
+
+export interface ProviderConfig {
+  key: string;
+  type: 'oauth2';
+  /** Canonical issuer / default base (supports `$variable` interpolation). Used when `tokenHttpBaseUrl` is unset or resolves empty after interpolation. */
+  baseUrl: string;
+  /**
+   * Content-Type used for token endpoint POST requests.
+   * Defaults to `'application/x-www-form-urlencoded'` when unset.
+   */
+  contentType?: 'application/x-www-form-urlencoded' | 'application/json';
+  /**
+   * If set (supports `$variable` interpolation), browser authorize redirects use this origin instead of `baseUrl`.
+   * Use when `baseUrl` points at a same-origin dev proxy: the IdP login page must load from the real host so `/resources/...`
+   * assets resolve.
+   */
+  authorizationBrowserBaseUrl?: string;
+  /**
+   * If set (supports `$variable` interpolation), token endpoint, refresh, token-exchange, and logout HTTP use this base
+   * instead of `baseUrl`. Use for same-origin CORS proxies (e.g. Vite `/__keycloak`) while keeping `baseUrl` as the real issuer.
+   */
+  tokenHttpBaseUrl?: string;
+  /**
+   * Base URL for mTLS (mutual TLS) endpoints on this provider (supports `$variable` interpolation).
+   * Not used by the SDK internally — exposed via `getProviderMeta` so host apps can construct
+   * certificate-related request URLs (e.g. `/certificate/create`).
+   */
+  mtlsBaseUrl?: string;
+  networkPolicy?: NetworkPolicy;
+  headers?: Record<string, string>;
+  contexts: AuthContextConfig[];
+}
+
+export interface HostConfig {
+  key: string;
+  baseUrl: string;
+  /** Explicit list of provider/context ids allowed for this host */
+  allowedAuth: string[];
+  /** If set, used when a request omits `auth` */
+  defaultAuth?: string;
+  /**
+   * Default headers for every request to this host (after `$variable` interpolation).
+   * Per-request {@link HostRequestOptions.headers} override these for the same header name.
+   */
+  headers?: Record<string, string>;
+}
+
+export interface MorphConfig {
+  providers: ProviderConfig[];
+  hosts: HostConfig[];
+  /**
+   * When an IdP redirects to the app root (`/?code=…`) instead of a dedicated `/oauth/callback` route,
+   * {@link MorphClient.completeOAuthReturn} exchanges the code for this `provider/context` auth id.
+   */
+  rootCallbackAuthId?: string;
+}
+
+/** Result of {@link MorphClient.completeOAuthReturn} and {@link MorphClient.completeOAuthCallback}. */
+export type OAuthReturnStatus = 'none' | 'success' | 'oauth_error' | 'error';
+
+export interface OAuthReturnResult {
+  status: OAuthReturnStatus;
+  message?: string;
+}
+
+/**
+ * Safe provider/config snapshot for UIs and docs (no `clientSecret`).
+ * From {@link MorphClient.getProviderMeta}.
+ */
+export interface MorphContextMeta {
+  key: string;
+  /** `providerKey/contextKey` */
+  authId: string;
+  clientId?: string;
+  clientAuth?: string;
+  audience?: string;
+  identity?: AuthContextConfig['identity'];
+  authorization?: AuthContextConfig['authorization'];
+  token: AuthContextConfig['token'];
+  logout?: AuthContextConfig['logout'];
+  scopes?: string[];
+  pkce?: AuthContextConfig['pkce'];
+  refreshPolicy?: AuthContextConfig['refreshPolicy'];
+  recoveryPolicy?: AuthContextConfig['recoveryPolicy'];
+  delegateMetadata?: AuthContextConfig['delegateMetadata'];
+  sessionPolicy?: AuthContextConfig['sessionPolicy'];
+  networkPolicy?: AuthContextConfig['networkPolicy'];
+  headers?: AuthContextConfig['headers'];
+  tokenTypes: AuthContextConfig['tokenTypes'];
+}
+
+export interface MorphProviderMeta {
+  key: string;
+  type: 'oauth2';
+  baseUrl: string;
+  authorizationBrowserBaseUrl?: string;
+  tokenHttpBaseUrl?: string;
+  /** mTLS base URL as configured in {@link ProviderConfig.mtlsBaseUrl} (after `$variable` interpolation). */
+  mtlsBaseUrl?: string;
+  networkPolicy?: NetworkPolicy;
+  headers?: Record<string, string>;
+  contexts: MorphContextMeta[];
+}
+
+export interface TokenSet {
+  accessToken: string;
+  refreshToken?: string;
+  /** Unix timestamp (seconds) */
+  expiresAt?: number;
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * One configured context: vault snapshot + optional JWT decode.
+ * From {@link MorphClient.getTokenStatus} — no network, no refresh, no `onAuthRequired`.
+ */
+export interface MorphTokenStatus {
+  authId: string;
+  providerKey: string;
+  contextKey: string;
+  /** Config `delegateMetadata.grantHint` when set (e.g. `client_credentials`, `authorization_code`). */
+  grantHint?: string;
+  hasAccessToken: boolean;
+  hasRefreshToken: boolean;
+  /** True when an access token exists and stored `expiresAt` (if present) is still in the future. */
+  accessLikelyValid: boolean;
+  /** Unix seconds from stored {@link TokenSet.expiresAt} (SDK-computed). */
+  expiresAt?: number;
+  /** JWT `exp` claim when the access token decodes as a JWT. */
+  jwtExp?: number;
+  /** Access token JWT payload (debug only; treat as sensitive). */
+  claims?: Record<string, unknown>;
+  /** When `hasAccessToken` but the string is not a decodable JWT. */
+  decodeError?: string;
+  /** Refresh token JWT payload when decodable (many providers use opaque refresh strings). */
+  refreshClaims?: Record<string, unknown>;
+  /** JWT `exp` on refresh token when decodable. */
+  refreshJwtExp?: number;
+  /** Refresh string looked like JWT but payload decode failed. */
+  refreshDecodeError?: string;
+}
+
+export interface StorageProvider {
+  read(key: string, storageConfig: StorageConfig): Promise<string | null>;
+  write(key: string, value: string, storageConfig: StorageConfig): Promise<void>;
+  delete(key: string, storageConfig: StorageConfig): Promise<void>;
+  deleteByPrefix(prefix: string, storageConfig: StorageConfig): Promise<void>;
+}
+
+export interface MorphCallbacks {
+  onAuthRequired: (authId: string, metadata: DelegateMetadata) => void;
+  onLogout: (authId: string, reason: LogoutReason) => void;
+  onTokenChange?: (authId: string, tokens: TokenSet | null) => void;
+  onCustomGrant?: (params: {
+    authId: string;
+    grantType: string;
+    context: AuthContextConfig;
+    variables: Record<string, string>;
+  }) => Promise<Record<string, string> | null>;
+}
+
+export interface ProxyConfig {
+  url: string;
+}
+
+export interface ClientCertificate {
+  cert: string;
+  key: string;
+  passphrase?: string;
+}
+
+export interface NetworkConfig {
+  certificatePins?: string[];
+  proxy?: ProxyConfig;
+  clientCertificate?: ClientCertificate;
+}
+
+export interface NetworkDelegate {
+  getNetworkConfig(hostname: string): Promise<NetworkConfig | null>;
+}
+
+export interface TokenExchangeGrant {
+  type: 'authorization_code' | 'client_credentials' | 'token_exchange' | 'refresh_token';
+  authId: string;
+  code?: string;
+  codeVerifier?: string;
+  sourceAuthId?: string;
+  sourceToken?: string;
+  refreshToken?: string;
+}
+
+export type CtxRef = { provider: ProviderConfig; context: AuthContextConfig };
+
+export interface AuthPlugin {
+  resolveAccessToken(authId: string, ref: CtxRef, mode: 'probe' | 'http'): Promise<string>;
+  handle401Recovery(authId: string, ref: CtxRef): Promise<void>;
+  fireAuthRequired(authId: string, ctx: AuthContextConfig): void;
+  submitCode(authId: string, ref: CtxRef, code: string, opts?: { codeVerifier?: string; redirectUriOverride?: string }): Promise<void>;
+  acquireWithClientCredentials(authId: string, ref: CtxRef): Promise<void>;
+  exchangeToken(sourceAuthId: string, sourceRef: CtxRef, targetAuthId: string): Promise<void>;
+  setTokens(authId: string, ref: CtxRef, tokens: TokenSet): Promise<void>;
+  clearTokens(authId: string, ref: CtxRef): Promise<void>;
+  loadTokens(authId: string, ref: CtxRef): Promise<TokenSet | null>;
+  logout(authId: string, ref: CtxRef, reason: LogoutReason): Promise<void>;
+  logoutProvider(providerKey: string, reason: LogoutReason): Promise<void>;
+  hasValidTokenContext(authId: string, ref: CtxRef): Promise<boolean>;
+  hasValidTokenProvider(providerKey: string): Promise<boolean>;
+  refreshTokensManual(authId: string, ref: CtxRef): Promise<void>;
+  dispose(): void;
+}
+
+export type AuthPluginFactory = (resolved: { config: MorphConfig; contextByAuthId: Map<string, CtxRef>; contextsByProvider: Map<string, AuthContextConfig[]>; hostByKey: Map<string, HostConfig> }, options: MorphOptions, variables: Record<string, string>) => AuthPlugin;
+
+export interface MorphPluginContext {
+  resolved: { config: MorphConfig; contextByAuthId: Map<string, CtxRef>; contextsByProvider: Map<string, AuthContextConfig[]>; hostByKey: Map<string, HostConfig> };
+  options: MorphOptions;
+  variables: Record<string, string>;
+  provideAuth(auth: AuthPlugin): void;
+  provideStorage(storage: StorageProvider): void;
+}
+
+export interface MorphPlugin {
+  name: string;
+  /** Capabilities this plugin registers (e.g. `['auth']`, `['storage']`). Used for topological sort. */
+  provides?: string[];
+  /** Capabilities this plugin needs from other plugins (e.g. `['storage']`). The runtime installs providers first. */
+  requires?: string[];
+  install(ctx: MorphPluginContext): void;
+  dispose?(): void;
+}
+
+export interface MorphOptions {
+  plugins: MorphPlugin[];
+  variables?: Record<string, string>;
+  networkDelegate?: NetworkDelegate;
+  onSignPayload?: (payload: string, authId: string) => Promise<string>;
+  onDecryptResponse?: (encryptedBody: string, authId: string) => Promise<string>;
+  onLog?: (
+    level: 'debug' | 'info' | 'warn' | 'error',
+    message: string,
+    error?: Error,
+    context?: Record<string, unknown>,
+  ) => void;
+  onHttpTrace?: (event: MorphHttpTraceEvent) => void;
+  /**
+   * When `clientAuth` is `private_key_jwt`, return a signed client assertion JWT for the token endpoint.
+   * If omitted and `clientSecret` is present, client_secret is used instead (e.g. PoC Keycloak).
+   */
+  onClientJwtAssertion?: (authId: string) => Promise<string | null>;
+  /**
+   * Called when `token.grantType` is set to a non-standard value and `acquire` is invoked.
+   * Return extra body fields to merge into the token request (e.g. proprietary claims).
+   * Return `null` to skip custom fields and let the SDK send only the standard fields.
+   */
+  onCustomGrant?: (params: {
+    authId: string;
+    grantType: string;
+    context: AuthContextConfig;
+    variables: Record<string, string>;
+  }) => Promise<Record<string, string> | null>;
+  /** When true, SDK automatically calls `acquire` for contexts with `interaction: 'non-interactive'` on `onAuthRequired`. Default false. */
+  autoAcquireNonInteractive?: boolean;
+
+  /** @internal Resolved by plugin system during init. Do not set directly. */
+  _resolvedAuth?: AuthPlugin;
+  /** @internal Resolved by plugin system during init. Do not set directly. */
+  _resolvedStorage?: StorageProvider;
+}
+
+export interface HostRequestOptions {
+  auth?: string | string[];
+  headers?: Record<string, string>;
+  queryParams?: Record<string, string>;
+  timeout?: string;
+  sign?: boolean;
+  encrypted?: boolean;
+}
+
+export interface HostFullRequestOptions extends HostRequestOptions {
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD' | 'OPTIONS';
+  path: string;
+  body?: unknown;
+}
+
+export interface MorphResponse<T = unknown> {
+  statusCode: number;
+  headers: Record<string, string>;
+  body: T;
+  resolvedAuth: string;
+  raw: Response;
+}
+
+/**
+ * Structured trace for a single `host(...).get/post/...` HTTP round-trip.
+ * Emitted via {@link MorphOptions.onHttpTrace} — separate from {@link MorphOptions.onLog} (human-oriented lines).
+ * `Authorization` is redacted in {@link MorphHttpTraceEvent.requestHeaders}.
+ */
+export interface MorphHttpTraceEvent {
+  kind: 'host_http';
+  hostKey: string;
+  method: string;
+  url: string;
+  path: string;
+  authId: string;
+  requestHeaders: Record<string, string>;
+  statusCode: number;
+  responseHeaders: Record<string, string>;
+  responseBody: unknown;
+  durationMs: number;
+  /** Set when `fetch()` rejects (network failure, abort, etc.). */
+  networkError?: string;
+}

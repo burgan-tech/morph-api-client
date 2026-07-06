@@ -48,7 +48,7 @@ Morph API Client is initialized with a JSON configuration **object** containing 
 }
 ```
 
-The configuration is validated during `MorphClient.init()`. Invalid configurations produce descriptive errors at initialization time, not at request time.
+The configuration is validated during `MorphClient.init()`. Invalid configurations produce descriptive errors at initialization time, not at request time. In addition to the JSON config, `MorphClient.init()` requires a `plugins` array with at least an auth plugin and a storage plugin. See [Getting Started](getting-started.md) for initialization and [Writing Plugins](writing-plugins.md) for custom plugins.
 
 ---
 
@@ -98,7 +98,7 @@ A context represents a single authentication scheme within a provider. Each cont
 | `key` | `string` | Yes | Unique identifier for this auth context within the provider. Combined with provider key to form auth id: `morph-auth/device`. Also available as the `$key` interpolation variable. |
 | `clientId` | `string` | No | OAuth2 client identifier. Supports `$variable` interpolation. |
 | `clientSecret` | `string` | No | OAuth2 client secret. Supports `$variable` interpolation. **Never exposed** via `getProviderMeta()`. |
-| `clientAuth` | `string` | No | Client authentication method: `"client_secret_post"` (default) or `"private_key_jwt"`. When `private_key_jwt`, the SDK calls `MorphOptions.onClientJwtAssertion` to obtain a signed assertion. |
+| `clientAuth` | `string` | No | Client authentication method: `"client_secret_post"` (default) or `"private_key_jwt"`. When `private_key_jwt`, the auth plugin calls `onClientJwtAssertion` (passed via `oauth2Plugin({ onClientJwtAssertion })`) to obtain a signed assertion. |
 
 ### identity
 

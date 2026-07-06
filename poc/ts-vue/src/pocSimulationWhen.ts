@@ -1,4 +1,4 @@
-import type { MorphClient } from 'morph-api-client';
+import type { MorphClient } from '@morph/core';
 import type { PocSimCondition } from './pocSimulation';
 
 export type PocSimConditionEvalContext = {

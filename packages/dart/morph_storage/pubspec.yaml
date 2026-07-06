@@ -1,0 +1,18 @@
+name: morph_storage
+description: >
+  In-memory StorageProvider and MorphPlugin for Morph (tests/VM). Browser
+  session/local storage lives in @morph/browser-storage (TS); production Flutter
+  apps typically use morph-data-store via morph_core_storage.
+publish_to: "none"
+version: 0.1.0
+
+environment:
+  sdk: ">=3.6.0 <4.0.0"
+
+dependencies:
+  morph_core:
+    path: ../morph_core
+
+dev_dependencies:
+  lints: ^5.1.1
+  test: ^1.25.8

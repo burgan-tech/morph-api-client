@@ -56,18 +56,22 @@ The SDK is not a standalone token manager that hands tokens to a separate HTTP c
         │              └───────┬──────────┘
         │                      │
 ┌───────▼──────────────────────▼───────────────────────┐
-│              Platform Abstractions                     │
-│   StorageProvider · NetworkDelegate                    │
-│   (injected at init, platform-specific impls)          │
+│              Plugin System + Platform Abstractions      │
+│   MorphPlugin[] → topoSort → install                   │
+│   StorageProvider (via plugin) · NetworkDelegate        │
 └──────────────────────────────────────────────────────┘
 ```
 
+### Plugin System
+
+At init time, `MorphClient.init()` topologically sorts the `plugins[]` array using each plugin's `provides` and `requires` declarations, then calls `install(ctx)` on each in dependency order. Plugins register capabilities via `ctx.provideAuth()` and `ctx.provideStorage()`. This decouples the core from any specific auth or storage implementation.
+
 ### Module Responsibilities
 
-- **MorphRuntime** — Thin coordinator. Owns config queries (`getHost`, `parseAuthRef`, `getTokenStatus`, `getProviderMeta`), OAuth flow orchestration (`getAuthorizationUrl`, `completeOAuthCallback`, `completeOAuthReturn`), and delegates token/HTTP work to sub-modules.
-- **TokenLifecycle** — All token operations: consolidated `executeGrant` helper (replaces 4 separate grant functions), lock management, refresh, client credentials, token exchange, `resolveAccessToken` (the core resolution algorithm), and `handle401Recovery` (for the host pipeline's 401 path).
-- **HostPipeline** — Host HTTP requests: URL resolution, header merging, `fetchWithTrace` (timeout + abort + trace), 401 recovery delegation, response parsing, and sign/decrypt delegate calls.
-- **TokenVault** — Storage I/O: key interpolation, serialization, and delegation to the injected `StorageProvider`.
+- **MorphRuntime** — Thin coordinator. Installs plugins (topo sort + install loop), owns config queries (`getHost`, `parseAuthRef`, `getTokenStatus`, `getProviderMeta`), OAuth flow orchestration (`getAuthorizationUrl`, `completeOAuthCallback`, `completeOAuthReturn`), and delegates token/HTTP work to sub-modules.
+- **TokenLifecycle** (`@morph/oauth2`) — All token operations: consolidated `executeGrant` helper, lock management, refresh, client credentials, token exchange, `resolveAccessToken` (the core resolution algorithm), and `handle401Recovery` (for the host pipeline's 401 path). Implements the `AuthPlugin` interface.
+- **HostPipeline** — Host HTTP requests: URL resolution, header merging, `fetchWithTrace` (timeout + abort + trace), 401 recovery delegation, response parsing, and sign/decrypt delegate calls. Depends on `AuthPlugin` interface (not `TokenLifecycle` directly).
+- **TokenVault** (`@morph/oauth2`) — Storage I/O: key interpolation, serialization, and delegation to the `StorageProvider` registered by the storage plugin.
 
 ### Dependency Graph
 
@@ -105,8 +109,8 @@ Auth contexts are grouped under **providers**. A provider represents a single au
 providers
 ├── morph-auth  (baseUrl: .../realms/morph)
 │   ├── device   (non-interactive, device-scoped)
-│   ├── 1fa      (interactive login, user-scoped)
-│   └── 2fa      (step-up via token exchange, session-scoped)
+│   ├── 2fa      (interactive login, session-scoped)
+│   └── 1fa      (session token via exchange from 2fa, user-scoped)
 │
 └── google-auth (baseUrl: accounts.google.com)
     └── google   (redirect, PKCE, session-scoped)
@@ -118,13 +122,13 @@ While contexts within a provider share the auth server, each context operates in
 
 - **device** — Machine-level credentials. Acquired non-interactively (client credentials). Stored persistently at device scope. Used for unauthenticated-user API calls (public content, pre-login flows).
 
-- **1fa** — First-factor user authentication. Acquired interactively (authorization code). Token is user-scoped and persisted. Represents a logged-in user session.
+- **2fa** — Interactive user login. Acquired via authorization code flow (browser redirect to Keycloak). Session-scoped in-memory tokens. Subject to session timeouts (background, inactivity).
 
-- **2fa** — Step-up authentication. Acquired via token exchange from the 1fa context. Subject to session timeouts (background, inactivity).
+- **1fa** — Long-lived session token. Acquired via token exchange from the 2fa context (`token.exchangeSource: "morph-auth/2fa"`). User-scoped persistent encrypted storage. Auto-exchanged during token resolution.
 
 - **google** — External OAuth2 provider. Full authorization code flow with PKCE. Session-scoped tokens.
 
-The SDK does not enforce a hierarchy between contexts — each operates independently. The progressive chain (device → 1fa → 2fa) is expressed through the host application's auth flow logic and the `delegateMetadata.grantHint` values.
+The SDK does not enforce a hierarchy between contexts — each operates independently. The progressive chain (device → 2fa login → 1fa via exchange) is expressed through the host application's auth flow logic and the `delegateMetadata.grantHint` values.
 
 ## Host Model
 
@@ -138,8 +142,7 @@ Hosts represent the API servers that the application calls. Each host has:
 ```
 hosts
 ├── main-api     (baseUrl: localhost:3000)
-│   ├── allowedAuth: [morph-auth/device, morph-auth/1fa, morph-auth/2fa]
-│   └── defaultAuth: morph-auth/2fa
+│   └── allowedAuth: [morph-auth/device, morph-auth/1fa, morph-auth/2fa, google-auth/google]
 │
 └── google-api   (baseUrl: googleapis.com)
     ├── allowedAuth: [google-auth/google]
@@ -152,24 +155,41 @@ The `allowedAuth` list enables **request-time validation**: if a request through
 
 ```
 morph-api-client/
-├── core/                            # morph-api-client npm package
-│   └── src/
-│       ├── client/                  # MorphClient, HostClient, AuthHandle (facades)
-│       ├── config/                  # validate (CtxRef, hostByKey), interpolate ($variable)
-│       ├── tokens/                  # TokenLifecycle, TokenVault
-│       ├── http/                    # HostPipeline
-│       ├── oauth/                   # tokenHttp (grant HTTP), oauthAuthorize (URL builder)
-│       ├── util/                    # jwt, expiry, url, oauthState, oauthReturn, httpTrace
-│       ├── storage/                 # createBrowserSessionStorage, createBrowserLocalStorage
-│       ├── runtime.ts              # MorphRuntime coordinator
-│       ├── types.ts                # Public interfaces
-│       ├── errors.ts               # Error classes
-│       └── index.ts                # Public exports
+├── packages/
+│   ├── ts/                          # TypeScript npm workspaces (@morph/*)
+│   │   ├── core/                    # @morph/core — types, config, HTTP pipeline, client facades
+│   │   │   └── src/
+│   │   │       ├── client/          # MorphClient, HostClient, AuthHandle
+│   │   │       ├── config/          # validate (CtxRef, hostByKey), interpolate ($variable)
+│   │   │       ├── http/            # HostPipeline (depends on AuthPlugin interface)
+│   │   │       ├── util/            # jwt, expiry, url, duration, httpTrace, oauthState
+│   │   │       ├── runtime.ts       # MorphRuntime coordinator
+│   │   │       ├── types.ts         # Public interfaces (AuthPlugin, StorageProvider, …)
+│   │   │       ├── errors.ts        # Error classes
+│   │   │       └── index.ts         # Public exports
+│   │   ├── oauth2/                  # @morph/oauth2 — OAuth2 token lifecycle plugin
+│   │   │   └── src/
+│   │   │       ├── tokens/          # TokenLifecycle (implements AuthPlugin), TokenVault
+│   │   │       ├── oauth/           # tokenHttp (grant HTTP)
+│   │   │       ├── util/            # interpolate, expiry, exchangeSources
+│   │   │       └── index.ts         # oauth2Plugin() MorphPlugin factory
+│   │   ├── browser-storage/         # @morph/browser-storage — browser storage adapters
+│   │   │   └── src/
+│   │   │       ├── browserStorage.ts # createBrowserSessionStorage, createBrowserLocalStorage
+│   │   │       └── index.ts         # browserStoragePlugin() MorphPlugin factory
+│   │   └── logger/                  # @morph/logger — structured logging plugin
+│   │       └── src/
+│   │           └── index.ts         # loggerPlugin() MorphPlugin factory
+│   └── dart/                        # Dart Pub packages (morph_*), parity with TS track
+│       ├── morph_core/
+│       ├── morph_oauth2/
+│       ├── morph_logger/
+│       └── morph_storage/
 ├── poc/
-│   ├── ts-vue/                     # Vue 3 PoC app
-│   ├── keycloak/                   # Docker Keycloak realm
-│   └── mock-api/                   # Mock REST API
-└── docs/                           # Design & API documentation
+│   ├── ts-vue/                      # Vue 3 PoC app
+│   ├── keycloak/                    # Docker Keycloak realm
+│   └── mock-api/                    # Mock REST API
+└── docs/                            # Design & API documentation
 ```
 
 ## Transport Security
@@ -214,9 +234,9 @@ Authentication UX varies wildly: biometric prompts, WebView redirects, OTP scree
 
 Different tokens have different security and lifecycle requirements:
 - Device tokens are long-lived and only need secure storage.
-- 1fa tokens are user-specific and need encryption at rest.
-- 2fa access tokens are ephemeral and can live in memory.
-- 2fa refresh tokens need persistent encrypted storage to survive app restarts.
+- 2fa tokens are session-scoped and can live in memory (ephemeral login session).
+- 1fa access and refresh tokens are user-scoped and need persistent encrypted storage to survive app restarts.
+- Google tokens are session-scoped and can live in memory.
 
 A single storage strategy cannot serve all of these correctly.
 

@@ -1,12 +1,15 @@
 import {
   MorphClient,
-  createBrowserSessionStorage,
   normalizeLoopbackOrigin,
   type MorphConfig,
   type MorphOptions,
-} from 'morph-api-client';
+} from '@morph/core';
+import { oauth2Plugin } from '@morph/oauth2';
+import { browserStoragePlugin } from '@morph/browser-storage';
+import { loggerPlugin } from '@morph/logger';
 import morphConfigJson from '../../../docs/poc/poc-config.json';
 import { pushHostHttpTrace } from './hostHttpTraceStore';
+import { WebSimIdentity } from './deviceIdentity';
 
 /**
  * Deep-clone `docs/poc/poc-config.json` and apply PoC-wide runtime flags only (no per-provider key hacks — proxies live in config + `variables`).
@@ -53,47 +56,13 @@ export function getSimulationConsoleVerbose(): boolean {
 
 const morphConfig = buildMorphConfig();
 
-const storage = createBrowserSessionStorage('morph-poc:tk:');
+const STORAGE_PREFIX = 'morph-poc:tk:';
 
 /**
  * Mobile model: device token uses stable deviceId + installationId (GUID created on first install).
  * Web PoC simulation: browser profile ≈ device (localStorage), browser tab session ≈ install (sessionStorage — new tab/session ⇒ new installationId).
  * Set VITE_DEVICE_ID / VITE_INSTALLATION_ID to pin values (CI, demos).
  */
-const WEB_SIM_DEVICE_KEY = 'morph-poc:device-id';
-const WEB_SIM_INSTALL_KEY = 'morph-poc:installation-id';
-
-function readOrCreateWebSimDeviceId(): string {
-  const fromEnv = import.meta.env.VITE_DEVICE_ID?.trim();
-  if (fromEnv) return fromEnv;
-  if (typeof localStorage === 'undefined') return 'poc-device-anon';
-  try {
-    let id = localStorage.getItem(WEB_SIM_DEVICE_KEY);
-    if (!id) {
-      id = crypto.randomUUID();
-      localStorage.setItem(WEB_SIM_DEVICE_KEY, id);
-    }
-    return id;
-  } catch {
-    return `poc-device-${crypto.randomUUID()}`;
-  }
-}
-
-function readOrCreateWebSimInstallationId(): string {
-  const fromEnv = import.meta.env.VITE_INSTALLATION_ID?.trim();
-  if (fromEnv) return fromEnv;
-  if (typeof sessionStorage === 'undefined') return 'poc-install-anon';
-  try {
-    let id = sessionStorage.getItem(WEB_SIM_INSTALL_KEY);
-    if (!id) {
-      id = crypto.randomUUID();
-      sessionStorage.setItem(WEB_SIM_INSTALL_KEY, id);
-    }
-    return id;
-  } catch {
-    return `poc-install-${crypto.randomUUID()}`;
-  }
-}
 
 function keycloakRealmOidcPath(host: string): string {
   return `${host.replace(/\/$/, '')}/realms/morph/protocol/openid-connect`;
@@ -105,8 +74,8 @@ function variables(): Record<string, string> {
   const useDynamicRedirect = import.meta.env.DEV;
   const oauthBase = useDynamicRedirect ? normalizeLoopbackOrigin(origin) : origin.replace(/\/$/, '');
   return {
-    deviceId: readOrCreateWebSimDeviceId(),
-    installationId: readOrCreateWebSimInstallationId(),
+    deviceId: WebSimIdentity.getDeviceId(),
+    installationId: WebSimIdentity.getInstallationId(),
     deviceClientSecret: v.VITE_DEVICE_CLIENT_SECRET ?? '',
     loginClientSecret: v.VITE_LOGIN_CLIENT_SECRET ?? '',
     sessionClientSecret: v.VITE_SESSION_CLIENT_SECRET ?? '',
@@ -185,32 +154,27 @@ export function warnPocOAuthRedirectIfNonLoopback(): void {
   );
 }
 
+const logger = loggerPlugin({
+  level: getSimulationConsoleVerbose() ? 'debug' : 'info',
+  prefix: '[morph] ',
+});
+
 const options: MorphOptions = {
-  storage,
+  plugins: [
+    logger,
+    oauth2Plugin({
+      logger,
+      storage: browserStoragePlugin({ prefix: STORAGE_PREFIX, logger }),
+      variables: morphVariables,
+      autoAcquireNonInteractive: true,
+      callbacks: {
+        onTokenChange(authId, tokens) {
+          console.debug('[morph] onTokenChange', authId, !!tokens);
+        },
+      },
+    }),
+  ],
   variables: morphVariables,
-  autoAcquireNonInteractive: true,
-  callbacks: {
-    onAuthRequired(authId, metadata) {
-      console.warn('[morph] onAuthRequired', authId, metadata);
-    },
-    onLogout(authId, reason) {
-      console.info('[morph] onLogout', authId, reason);
-    },
-    onTokenChange(authId, tokens) {
-      console.debug('[morph] onTokenChange', authId, !!tokens);
-    },
-  },
-  onLog(level, message, err, ctx) {
-    const line = `[morph:${level}] ${message}`;
-    const rest: [unknown, unknown] = [err ?? '', ctx ?? ''];
-    if (getSimulationConsoleVerbose()) {
-      if (level === 'error' || level === 'warn') console[level](line, ...rest);
-      else if (level === 'info') console.info(line, ...rest);
-      else console.log(line, ...rest);
-      return;
-    }
-    console[level === 'debug' ? 'debug' : level](line, ...rest);
-  },
   onHttpTrace: (e) => pushHostHttpTrace(e),
 };
 

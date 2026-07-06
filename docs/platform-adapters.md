@@ -1,6 +1,6 @@
 # Platform Adapters
 
-The SDK defines two interfaces that the host application can implement to bridge platform-specific capabilities: **StorageProvider** (required) and **NetworkDelegate** (optional). Logging is handled via the `onLog` callback on `MorphOptions`.
+The SDK defines two interfaces that the host application provides via plugins: **StorageProvider** (required, registered by a storage plugin like `browserStoragePlugin()`) and **NetworkDelegate** (optional, passed directly in `MorphOptions`). Logging is handled via the `onLog` callback on `MorphOptions`. See [Writing Plugins](writing-plugins.md) for how to create custom storage plugins.
 
 > **Dart/Flutter parity is planned.** This document currently covers TypeScript. The Dart SDK will expose the same interfaces with language-appropriate idioms.
 
@@ -8,7 +8,7 @@ The SDK defines two interfaces that the host application can implement to bridge
 
 ## StorageProvider
 
-The storage provider is responsible for persisting and retrieving token data. A single `StorageProvider` instance is passed at init time. The SDK passes the full `StorageConfig` from the config JSON to every call, so the delegate has all the context it needs to make storage decisions.
+The storage provider is responsible for persisting and retrieving token data. A `StorageProvider` is registered by a storage plugin (via `ctx.provideStorage()`) during `MorphClient.init()`. The SDK passes the full `StorageConfig` from the config JSON to every call, so the delegate has all the context it needs to make storage decisions.
 
 ### Interface
 
@@ -67,23 +67,41 @@ The storage provider stores and returns this string as-is. Deserialization is ha
 
 ---
 
-## SDK-Provided Browser Storage Factories
+## SDK-Provided Browser Storage Plugin
 
-For web applications, the SDK ships two ready-made `StorageProvider` implementations:
+For web applications, the `@morph/browser-storage` package provides a ready-made plugin:
 
 ```typescript
-import { createBrowserSessionStorage, createBrowserLocalStorage } from 'morph-api-client';
+import { MorphClient } from '@morph/core';
+import { oauth2Plugin } from '@morph/oauth2';
+import { browserStoragePlugin } from '@morph/browser-storage';
+import { loggerPlugin } from '@morph/logger';
 
-// sessionStorage — tokens survive SPA reload but not new tabs
-const storage = createBrowserSessionStorage('myapp:tk:');
+const logger = loggerPlugin({ level: 'info' });
 
-// localStorage — tokens persist across tabs and sessions
-const storage = createBrowserLocalStorage('myapp:tk:');
+MorphClient.init(config, {
+  plugins: [
+    logger,
+    oauth2Plugin({
+      logger,
+      storage: browserStoragePlugin({ prefix: 'myapp:tk:', logger }),
+    }),
+  ],
+});
 ```
 
-These factories create a `StorageProvider` that prefixes all keys with the given string and delegates to the browser's `sessionStorage` or `localStorage`. They ignore `StorageConfig.protection` (browser storage has no encryption layer — use a custom implementation for encrypted storage).
+Short form (without explicit logger):
 
-For production apps with sensitive tokens, implement a custom `StorageProvider` that uses Web Crypto API for the `"encrypted"` protection level.
+```typescript
+oauth2Plugin({
+  storage: browserStoragePlugin('myapp:tk:'),         // sessionStorage (default)
+  // storage: browserStoragePlugin('myapp:tk:', 'local'), // localStorage
+})
+```
+
+The plugin creates a `StorageProvider` that prefixes all keys with the given string and delegates to the browser's `sessionStorage` or `localStorage`. It ignores `StorageConfig.protection` (browser storage has no encryption layer -- use a custom plugin for encrypted storage).
+
+For production apps with sensitive tokens, write a custom storage plugin using the `MorphPlugin` interface. See [Writing Plugins](writing-plugins.md).
 
 ---
 
@@ -132,25 +150,38 @@ const storage: StorageProvider = {
 
 ## In-Memory Storage (Dev/Test)
 
-For development and testing, a simple in-memory storage is sufficient:
+For development and testing, write a simple in-memory storage plugin:
 
 ```typescript
-const tokenStore = new Map<string, string>();
+import { MorphClient, type MorphPlugin } from '@morph/core';
+import { oauth2Plugin } from '@morph/oauth2';
+
+function memoryStoragePlugin(): MorphPlugin {
+  const store = new Map<string, string>();
+  return {
+    name: 'memory-storage',
+    provides: ['storage'],
+    install(ctx) {
+      ctx.provideStorage({
+        read: async (key) => store.get(key) ?? null,
+        write: async (key, value) => { store.set(key, value); },
+        delete: async (key) => { store.delete(key); },
+        deleteByPrefix: async (prefix) => {
+          for (const k of store.keys()) if (k.startsWith(prefix)) store.delete(k);
+        },
+      });
+    },
+  };
+}
 
 const morph = MorphClient.init(config, {
-  storage: {
-    read: async (key) => tokenStore.get(key) ?? null,
-    write: async (key, value) => { tokenStore.set(key, value); },
-    delete: async (key) => { tokenStore.delete(key); },
-    deleteByPrefix: async (prefix) => {
-      for (const k of tokenStore.keys()) if (k.startsWith(prefix)) tokenStore.delete(k);
-    },
-  },
-  callbacks: { /* ... */ },
+  plugins: [
+    oauth2Plugin({ storage: memoryStoragePlugin() }),
+  ],
 });
 ```
 
-In-memory storage is not suitable for production — all tokens are lost when the process terminates.
+In-memory storage is not suitable for production -- all tokens are lost when the process terminates.
 
 ---
 
@@ -227,24 +258,37 @@ const morph = MorphClient.init(config, {
 
 ## Logging
 
-The SDK uses a single `onLog` callback on `MorphOptions` for all diagnostic output:
+Use the `@morph/logger` plugin for structured logging. Create one logger instance and pass it to every plugin:
 
 ```typescript
-const morph = MorphClient.init(config, {
+import { loggerPlugin } from '@morph/logger';
+
+const logger = loggerPlugin({ level: 'info', prefix: '[morph] ' });
+
+MorphClient.init(config, {
+  plugins: [
+    logger,
+    oauth2Plugin({ logger, storage: browserStoragePlugin({ prefix: 'myapp:', logger }) }),
+  ],
+});
+```
+
+All plugins route their log output through the shared logger. Custom log backends (remote telemetry, file logging) can be provided via the `onLog` option on `loggerPlugin()`:
+
+```typescript
+const logger = loggerPlugin({
   onLog: (level, message, error, context) => {
-    console.log(`[morph:${level}] ${message}`, context ?? '');
-    if (error) console.error(error);
+    myTelemetry.send({ level, message, error, ...context });
   },
-  // ...
 });
 ```
 
 ### Log Levels
 
-- **debug** — Token resolution steps, storage reads/writes, low-level details.
-- **info** — Successful token refresh, client_credentials renewal, token exchange, authorization_code storage, 401-driven refresh.
-- **warn** — Proactive refresh failure, exchange failure, logout endpoint failure.
-- **error** — Unrecoverable failures.
+- **debug** -- Token resolution steps, storage reads/writes, low-level details.
+- **info** -- Successful token refresh, client_credentials renewal, token exchange, authorization_code storage, 401-driven refresh.
+- **warn** -- Proactive refresh failure, exchange failure, logout endpoint failure, default `onAuthRequired`.
+- **error** -- Unrecoverable failures.
 
 All log messages include `authId` in the context map for filtering.
 

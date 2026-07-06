@@ -1,0 +1,401 @@
+# Writing Plugins
+
+Morph uses a plugin system to keep the core SDK small and extensible. Plugins register capabilities (auth, storage, or custom behavior) during initialization. The core never needs to change when a new plugin is added.
+
+---
+
+## Plugin Interface
+
+Every plugin implements the `MorphPlugin` interface:
+
+```typescript
+import type { MorphPlugin, MorphPluginContext } from '@morph/core';
+
+interface MorphPlugin {
+  name: string;
+  provides?: string[];
+  requires?: string[];
+  install(ctx: MorphPluginContext): void;
+  dispose?(): void;
+}
+```
+
+| Field | Description |
+|-------|-------------|
+| `name` | Unique identifier for the plugin (convention: npm package name) |
+| `provides` | Capabilities this plugin registers (e.g. `['auth']`, `['storage']`). Used for dependency resolution. |
+| `requires` | Capabilities this plugin needs (e.g. `['storage']`). The runtime ensures providers are installed first. |
+| `install(ctx)` | Called once during `MorphClient.init()` with the resolved config and options |
+| `dispose()` | Optional. Called when `MorphClient.dispose()` is invoked. Use for cleanup (timers, listeners, etc.) |
+
+---
+
+## Plugin Context
+
+The `install` method receives a `MorphPluginContext` with access to config and registration methods:
+
+```typescript
+interface MorphPluginContext {
+  resolved: ResolvedMorphConfig;
+  options: MorphOptions;
+  variables: Record<string, string>;
+  provideAuth(auth: AuthPlugin): void;
+  provideStorage(storage: StorageProvider): void;
+}
+```
+
+| Field | Description |
+|-------|-------------|
+| `resolved` | Validated and indexed config (providers, contexts, hosts, auth id maps) |
+| `options` | The full `MorphOptions` passed to `MorphClient.init()` |
+| `variables` | Resolved variable map for `$variable` interpolation |
+| `provideAuth(auth)` | Register an `AuthPlugin` implementation. Exactly one plugin must call this. |
+| `provideStorage(storage)` | Register a `StorageProvider` implementation. Exactly one plugin must call this. |
+
+---
+
+## How Plugins Are Loaded
+
+```mermaid
+sequenceDiagram
+    participant App
+    participant Client as MorphClient.init
+    participant Runtime as MorphRuntime
+    participant Sort as Topological Sort
+    participant P1 as Storage Plugin
+    participant P2 as Auth Plugin
+
+    App->>Client: init(config, { plugins: [p2, p1], ... })
+    Client->>Runtime: createRuntime(config, options)
+    Runtime->>Runtime: validateAndIndexConfig(config)
+    Runtime->>Sort: topoSort(plugins)
+    Note over Sort: p2 requires 'storage', p1 provides 'storage'
+    Sort-->>Runtime: sorted: [p1, p2]
+    Runtime->>P1: p1.install(ctx)
+    P1->>Runtime: ctx.provideStorage(storage)
+    Runtime->>P2: p2.install(ctx)
+    P2->>Runtime: ctx.provideAuth(auth)
+    Runtime->>Runtime: Verify auth + storage provided
+    Runtime->>Runtime: Create HostPipeline with auth
+    Note over App: MorphClient ready
+```
+
+**Order doesn't matter.** The runtime reads `provides` and `requires` from each plugin and topologically sorts them before installing. Providers are always installed before consumers:
+
+```typescript
+// Both work identically -- the runtime sorts them:
+plugins: [oauth2Plugin(), browserStoragePlugin('myapp:tk:')]
+plugins: [browserStoragePlugin('myapp:tk:'), oauth2Plugin()]
+```
+
+### Dependency Resolution
+
+Each plugin declares what it **provides** and what it **requires**:
+
+```typescript
+// browserStoragePlugin provides 'storage', requires nothing
+{ name: '@morph/browser-storage', provides: ['storage'] }
+
+// oauth2Plugin provides 'auth', requires 'storage'
+{ name: '@morph/oauth2', provides: ['auth'], requires: ['storage'] }
+```
+
+The runtime builds a dependency graph and installs plugins in the correct order. Missing or circular dependencies produce clear errors:
+
+```
+Error: Plugin '@morph/oauth2' requires 'storage' but no plugin provides it.
+       Add a plugin with provides: ['storage'] or pass the dependency via plugin options.
+
+Error: Circular plugin dependency detected among: @morph/a, @morph/b
+```
+
+### Explicit Dependency Injection
+
+If a plugin accepts its dependencies as constructor options, it can skip the `requires` declaration entirely:
+
+```typescript
+// No storage plugin needed -- oauth2 gets storage directly
+plugins: [
+  oauth2Plugin({ storage: myCustomEncryptedStorage }),
+]
+```
+
+When `storage` is passed via options, `oauth2Plugin` sets `requires: []` so the topo sort doesn't look for a storage provider.
+
+---
+
+## Built-in Plugins
+
+### `@morph/oauth2` -- Auth Plugin
+
+Provides OAuth2 token lifecycle management (refresh, exchange, client credentials, authorization code). All options are **optional** -- the plugin provides default callbacks.
+
+```typescript
+import { oauth2Plugin } from '@morph/oauth2';
+import { browserStoragePlugin } from '@morph/browser-storage';
+
+// Minimal -- defaults handle onAuthRequired + onLogout
+plugins: [
+  oauth2Plugin({
+    storage: browserStoragePlugin('myapp:tk:'),
+    variables: { deviceClientSecret: 'secret' },
+  }),
+]
+
+// Full options (all optional)
+plugins: [
+  oauth2Plugin({
+    storage: browserStoragePlugin('myapp:tk:'),  // or a raw StorageProvider, or omit for separate plugin
+    variables: { deviceClientSecret: 'secret' },
+    autoAcquireNonInteractive: true,
+    callbacks: {                                  // Partial -- only override what you need
+      onTokenChange: (authId, tokens) => { /* ... */ },
+    },
+    onTokenExchange: async (grant) => null,
+    onClientJwtAssertion: async (authId) => null,
+  }),
+]
+```
+
+**Callback defaults:** `onAuthRequired` logs at `warn` level via the resolved `logger`, `onLogout` logs at `info` level, `onTokenChange` is a no-op. Override only the callbacks you need.
+
+**Storage options:** Pass `browserStoragePlugin(...)` (a `MorphPlugin`) or a raw `StorageProvider`, or omit and add a separate storage plugin to the array.
+
+Calls `ctx.provideAuth()` with a `TokenLifecycle` instance that implements the `AuthPlugin` interface.
+
+### `@morph/browser-storage` -- Storage Plugin
+
+Provides `sessionStorage` or `localStorage` based token persistence.
+
+```typescript
+import { browserStoragePlugin } from '@morph/browser-storage';
+
+plugins: [
+  browserStoragePlugin('myapp:tk:'),            // sessionStorage (default)
+  browserStoragePlugin('myapp:tk:', 'local'),    // localStorage
+]
+```
+
+Calls `ctx.provideStorage()` with a `StorageProvider` backed by browser storage.
+
+### `@morph/logger` -- Logger Plugin
+
+Structured logging with level filtering and HTTP trace output. A utility plugin -- it does not provide auth or storage.
+
+```typescript
+import { loggerPlugin } from '@morph/logger';
+
+plugins: [
+  loggerPlugin(),                              // defaults: level 'info', prefix '[morph] '
+  loggerPlugin({ level: 'debug' }),            // verbose: includes debug messages
+  loggerPlugin({ level: 'warn', prefix: '' }), // quiet: only warnings and errors
+  loggerPlugin({                                // custom: bring your own log function
+    onLog: (level, msg, err, ctx) => myLogger.log(level, msg, { err, ...ctx }),
+    onHttpTrace: (event) => myTracer.record(event),
+  }),
+]
+```
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `level` | `'info'` | Minimum log level: `'debug'`, `'info'`, `'warn'`, `'error'` |
+| `prefix` | `'[morph] '` | Prepended to each log line |
+| `onLog` | console output | Custom log handler (replaces default console output) |
+| `onHttpTrace` | console.log | Custom HTTP trace handler |
+| `httpTrace` | `true` | Enable/disable HTTP trace logging |
+
+The plugin wraps `MorphOptions.onLog` and `MorphOptions.onHttpTrace`, chaining with any existing handlers. Multiple logger plugins can be stacked (e.g., one for console + one for remote telemetry).
+
+---
+
+## Writing a Custom Storage Plugin
+
+The simplest plugin type. Implement the `StorageProvider` interface and register it via `ctx.provideStorage()`.
+
+```typescript
+import type { MorphPlugin, StorageProvider, StorageConfig } from '@morph/core';
+
+function secureStoragePlugin(encryptionKey: string): MorphPlugin {
+  const memoryCache = new Map<string, string>();
+
+  async function encrypt(value: string): Promise<string> {
+    // Use Web Crypto API, Node.js crypto, or platform keychain
+    return btoa(value); // placeholder
+  }
+
+  async function decrypt(value: string): Promise<string> {
+    return atob(value); // placeholder
+  }
+
+  const provider: StorageProvider = {
+    async read(key, config) {
+      if (config.type === 'memory') return memoryCache.get(key) ?? null;
+      const raw = localStorage.getItem(key);
+      if (!raw) return null;
+      return config.protection === 'encrypted' ? decrypt(raw) : raw;
+    },
+
+    async write(key, value, config) {
+      if (config.type === 'memory') { memoryCache.set(key, value); return; }
+      const stored = config.protection === 'encrypted' ? await encrypt(value) : value;
+      localStorage.setItem(key, stored);
+    },
+
+    async delete(key, config) {
+      if (config.type === 'memory') { memoryCache.delete(key); return; }
+      localStorage.removeItem(key);
+    },
+
+    async deleteByPrefix(prefix, config) {
+      if (config.type === 'memory') {
+        for (const k of memoryCache.keys()) if (k.startsWith(prefix)) memoryCache.delete(k);
+        return;
+      }
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const k = localStorage.key(i);
+        if (k?.startsWith(prefix)) localStorage.removeItem(k);
+      }
+    },
+  };
+
+  return {
+    name: 'secure-storage',
+    provides: ['storage'],
+    install(ctx) {
+      ctx.provideStorage(provider);
+    },
+  };
+}
+```
+
+Usage:
+
+```typescript
+MorphClient.init(config, {
+  plugins: [
+    secureStoragePlugin('my-encryption-key'),
+    oauth2Plugin(),
+  ],
+  callbacks: { ... },
+});
+```
+
+---
+
+## Writing a Custom Auth Plugin
+
+For non-OAuth2 auth schemes (API keys, custom token servers, biometric flows). Implement the `AuthPlugin` interface and register via `ctx.provideAuth()`.
+
+```typescript
+import type { MorphPlugin, AuthPlugin, CtxRef, TokenSet, LogoutReason, AuthContextConfig } from '@morph/core';
+
+function apiKeyPlugin(apiKey: string): MorphPlugin {
+  const auth: AuthPlugin = {
+    async resolveAccessToken(_authId, _ref, _mode) {
+      return apiKey;
+    },
+    async handle401Recovery() {
+      throw new Error('API key rejected');
+    },
+    fireAuthRequired(_authId, _ctx) { /* no-op for static keys */ },
+    async submitCode() { throw new Error('Not supported'); },
+    async acquireWithClientCredentials() { /* no-op */ },
+    async exchangeToken() { throw new Error('Not supported'); },
+    async setTokens() { /* no-op */ },
+    async clearTokens() { /* no-op */ },
+    async loadTokens() { return { accessToken: apiKey }; },
+    async logout() { /* no-op */ },
+    async logoutProvider() { /* no-op */ },
+    async hasValidTokenContext() { return true; },
+    async hasValidTokenProvider() { return true; },
+    async refreshTokensManual() { /* no-op */ },
+    dispose() { /* no-op */ },
+  };
+
+  return {
+    name: 'api-key-auth',
+    provides: ['auth'],
+    install(ctx) {
+      ctx.provideAuth(auth);
+    },
+  };
+}
+```
+
+For more complex auth plugins, look at `@morph/oauth2`'s `TokenLifecycle` as a reference implementation.
+
+---
+
+## Writing a Utility Plugin
+
+Not all plugins need to provide auth or storage. A utility plugin hooks into the system for logging, analytics, or other cross-cutting concerns by wrapping `MorphOptions` callbacks. The built-in `@morph/logger` is an example. Here's a custom analytics plugin:
+
+```typescript
+import type { MorphPlugin } from '@morph/core';
+
+function analyticsPlugin(endpoint: string): MorphPlugin {
+  return {
+    name: 'analytics',
+    install(ctx) {
+      const original = ctx.options.onHttpTrace;
+      ctx.options.onHttpTrace = (event) => {
+        fetch(endpoint, {
+          method: 'POST',
+          body: JSON.stringify({ method: event.method, path: event.path, status: event.statusCode, ms: event.durationMs }),
+        }).catch(() => {});
+        original?.(event);
+      };
+    },
+  };
+}
+```
+
+---
+
+## Constraints
+
+- Exactly **one** plugin must call `ctx.provideAuth()`. Zero or more than one is an error.
+- Exactly **one** plugin must call `ctx.provideStorage()`. Zero or more than one is an error.
+- Plugins are **topologically sorted** by `provides` / `requires` before installation. Array order is a tiebreaker for plugins with no dependency relationship.
+- `install()` is synchronous (not async). Use constructor options for async initialization.
+- A plugin's `dispose()` is called when `MorphClient.dispose()` is invoked. Use for timer cleanup, event listener removal, etc.
+- Plugin names should be unique for debugging purposes but are not enforced at runtime.
+- Circular dependencies (A requires B, B requires A) are detected and throw an error at init time.
+- If a dependency is satisfied via plugin options (e.g. `oauth2Plugin({ storage })`), set `requires: []` so the topo sort doesn't look for a provider.
+
+---
+
+## Full Example: Custom Encrypted Storage + OAuth2 + Logger
+
+```typescript
+import { MorphClient } from '@morph/core';
+import { oauth2Plugin } from '@morph/oauth2';
+import { loggerPlugin } from '@morph/logger';
+import config from './morph-config.json';
+
+const logger = loggerPlugin({ level: 'debug' });
+
+const morph = MorphClient.init(config, {
+  plugins: [
+    logger,
+    oauth2Plugin({
+      logger,
+      storage: secureStoragePlugin('encryption-key-from-keychain'),
+      variables: { deviceClientSecret: '...' },
+      callbacks: {
+        onLogout: (authId, reason) => {
+          if (reason === 'session_expired') showToast('Session expired.');
+        },
+      },
+    }),
+  ],
+});
+```
+
+---
+
+## Next Steps
+
+- [API Reference](api-reference.md) -- `MorphPlugin`, `MorphPluginContext`, `AuthPlugin`, `StorageProvider` type definitions
+- [Platform Adapters](platform-adapters.md) -- `StorageProvider` interface details and `NetworkDelegate`
+- [Token Lifecycle](token-lifecycle.md) -- How `AuthPlugin.resolveAccessToken` fits into the token resolution algorithm

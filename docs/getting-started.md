@@ -5,7 +5,7 @@
 ## Installation
 
 ```bash
-npm install morph-api-client
+npm install @morph/core @morph/oauth2 @morph/browser-storage @morph/logger
 ```
 
 ---
@@ -84,17 +84,38 @@ See [Configuration Reference](configuration.md) for a full field reference.
 
 ## Initialization
 
+Plugins provide auth and storage capabilities. All `oauth2Plugin()` options are optional -- the plugin provides sensible defaults for callbacks. The runtime topologically sorts plugins by `provides` / `requires`, so order does not matter.
+
 ```typescript
-import { MorphClient, createBrowserSessionStorage } from 'morph-api-client';
+import { MorphClient } from '@morph/core';
+import { oauth2Plugin } from '@morph/oauth2';
+import { browserStoragePlugin } from '@morph/browser-storage';
+import { loggerPlugin } from '@morph/logger';
 import config from './morph-config.json';
 
+const logger = loggerPlugin({ level: 'info' });
+
 const morph = MorphClient.init(config, {
+  plugins: [
+    logger,
+    oauth2Plugin({
+      logger,
+      storage: browserStoragePlugin({ prefix: 'myapp:tk:', logger }),
+      variables: {
+        deviceClientSecret: 'device-secret-xyz',
+        userClientSecret: 'user-secret-uvw',
+        oauthRedirectUri: `${window.location.origin}/oauth/callback`,
+        deviceId: getDeviceId(),
+      },
+      autoAcquireNonInteractive: true,
+    }),
+  ],
   storage: createBrowserSessionStorage('myapp:tk:'),
 
   callbacks: {
     onAuthRequired: (authId, metadata) => {
       if (metadata.interaction === 'non-interactive') {
-        morph.auth(authId).acquireWithClientCredentials();
+        morph.auth(authId).acquire();
       } else if (metadata.interaction === 'interactive') {
         router.navigate('/login', { authId });
       }
@@ -117,6 +138,25 @@ const morph = MorphClient.init(config, {
   },
 });
 ```
+
+Create one logger and pass it to every plugin. All log output flows through a single pipeline. Override only the callbacks you need (all are optional with defaults):
+
+```typescript
+oauth2Plugin({
+  logger,
+  storage: browserStoragePlugin({ prefix: 'myapp:tk:', logger }),
+  callbacks: {
+    onAuthRequired: (authId, metadata) => {
+      if (metadata.interaction === 'interactive') router.navigate('/login', { authId });
+    },
+    onLogout: (authId, reason) => {
+      if (authId === 'my-auth/user') router.navigate('/login');
+    },
+  },
+})
+```
+
+Core `MorphOptions` only holds shared concerns (`onHttpTrace`, `onSignPayload`, `onDecryptResponse`). Logging is handled by `@morph/logger` -- create one logger plugin and pass it to every plugin that needs it. Callbacks and variables are passed directly to each plugin factory.
 
 ---
 
@@ -166,7 +206,7 @@ await morph.auth('google-auth/google').submitCode(code, { codeVerifier: pkceVeri
 For non-interactive flows (device tokens), the SDK can acquire tokens autonomously:
 
 ```typescript
-await morph.auth('my-auth/device').acquireWithClientCredentials();
+await morph.auth('my-auth/device').acquire();
 ```
 
 For step-up auth, the SDK exchanges one token for another. Called on the **source**, target is the parameter:
@@ -190,20 +230,19 @@ if (await morph.auth('my-auth/user').hasValidToken()) {
 }
 ```
 
-For synchronous UI state, use the `onTokenChange` callback:
+For synchronous UI state, pass `onTokenChange` to `oauth2Plugin`:
 
 ```typescript
 let isLoggedIn = false;
 
-const morph = MorphClient.init(config, {
-  // ...
+oauth2Plugin({
+  storage: browserStoragePlugin('myapp:tk:'),
   callbacks: {
-    // ...
     onTokenChange: (authId, tokens) => {
       if (authId === 'my-auth/user') isLoggedIn = !!tokens;
     },
   },
-});
+})
 ```
 
 ---
