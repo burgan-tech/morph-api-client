@@ -25,7 +25,7 @@ export default defineConfig(({ mode }) => {
     Object.entries(viteEnv).map(([k, v]) => [`import.meta.env.${k}`, JSON.stringify(v)]),
   )
 
-  const keycloakOrigin = viteEnv.VITE_KEYCLOAK_ORIGIN ?? 'http://localhost:8080'
+  const keycloakOrigin  = viteEnv.VITE_KEYCLOAK_ORIGIN    ?? 'http://localhost:8080'
 
   const repoRoot = path.resolve(__dirname, '../..')
 
@@ -36,7 +36,9 @@ export default defineConfig(({ mode }) => {
     server: {
       // HMR must use the same hostname as the page (e.g. localhost vs 127.0.0.1) or the WS fails and
       // the injected client throws in a tight loop: Cannot read properties of undefined (reading 'send').
+      host: 'localhost',
       strictPort: true,
+      port: 5173,
       hmr: { host: 'localhost' },
       fs: {
         allow: [__dirname, path.resolve(__dirname, '..'), repoRoot],

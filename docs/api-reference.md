@@ -54,7 +54,39 @@ const morph = MorphClient.init(config, {
     }),
   ],
 
-  // --- Core-level options (shared, not plugin-specific) ---
+  callbacks: {
+    onAuthRequired: (authId, metadata) => {
+      // authId format: 'provider/context', e.g. 'burgan-auth/device'
+      if (metadata.interaction === 'non-interactive') {
+        morph.auth(authId).acquire();
+
+      } else if (metadata.interaction === 'interactive') {
+        router.navigate('/login', { authId, workflow: metadata.workflow });
+        // ... later, after redirect returns a code:
+        morph.auth(authId).submitCode(code);
+        await morph.auth('burgan-auth/1fa').exchangeToken('burgan-auth/2fa');
+
+      } else if (metadata.interaction === 'redirect') {
+        window.location.href = `/auth/redirect?authId=${authId}`;
+        // ... later, after redirect returns a code:
+        // morph.auth(authId).submitCode(code, { codeVerifier });
+      }
+    },
+
+    onLogout: (authId, reason) => {
+      console.log(`[${authId}] logged out: ${reason}`);
+      if (authId === 'burgan-auth/1fa') {
+        router.navigate('/login');
+      }
+    },
+
+    onTokenChange: (authId, tokens) => {
+      if (authId === 'burgan-auth/1fa') setIsLoggedIn(!!tokens);
+      if (authId === 'burgan-auth/2fa') setCanTransfer(!!tokens);
+    },
+  },
+
+  // --- Functional delegates (SDK needs the result) ---
 
   networkDelegate: {
     async getNetworkConfig(hostname) {
@@ -342,12 +374,12 @@ await morph.auth('edevlet-auth/edevlet').submitCode(code, { codeVerifier: pkceVe
 
 ---
 
-### auth.acquireWithClientCredentials()
+### auth.acquire()
 
 For non-interactive contexts. The SDK calls the token endpoint with `clientId` + `clientSecret` from config (resolved via `$variable`). Resulting tokens are stored in **this** context.
 
 ```typescript
-await morph.auth('burgan-auth/device').acquireWithClientCredentials();
+await morph.auth('burgan-auth/device').acquire();
 // SDK calls POST with grant_type=client_credentials
 //   client_id=<config.clientId>, client_secret=<config.clientSecret>,
 //   audience=<config.audience>
@@ -429,7 +461,7 @@ await morph.auth('burgan-auth/1fa').setTokens({
 });
 ```
 
-For normal flows, prefer `submitCode()`, `acquireWithClientCredentials()`, or `exchangeToken()` — they handle the token endpoint call, `onTokenExchange` delegate check, and storage atomically.
+For normal flows, prefer `submitCode()`, `acquire()`, or `exchangeToken()` — they handle the token endpoint call, `onTokenExchange` delegate check, and storage atomically.
 
 ---
 
@@ -716,6 +748,22 @@ oauth2Plugin({
     onTokenChange: (authId, tokens) => {
       if (authId === 'burgan-auth/1fa') setIsLoggedIn(!!tokens);
     },
+const callbacks: MorphCallbacks = {
+  onAuthRequired: (authId, metadata) => {
+    // authId = 'burgan-auth/device', 'burgan-auth/1fa', 'edevlet-auth/edevlet', etc.
+    const [provider, context] = authId.split('/');
+
+    switch (metadata.interaction) {
+      case 'non-interactive':
+        morph.auth(authId).acquire();
+        break;
+      case 'interactive':
+        router.navigate('/login', { authId });
+        break;
+      case 'redirect':
+        window.location.href = `/auth/redirect?authId=${authId}`;
+        break;
+    }
   },
 })
 ```
@@ -775,7 +823,7 @@ onAuthRequired: (authId, metadata) => {
   // metadata = { workflow: 'step-up-auth', grantHint: 'token_exchange', interaction: 'interactive' }
 
   if (metadata.workflow === 'device-auth') {
-    morph.auth(authId).acquireWithClientCredentials();
+    morph.auth(authId).acquire();
   } else if (metadata.workflow === 'login') {
     router.navigate('/login', { authId });
     // later: morph.auth(authId).submitCode(code)
@@ -804,7 +852,7 @@ interface TokenSet {
 ```
 
 ```typescript
-// Normally handled by submitCode() / acquireWithClientCredentials().
+// Normally handled by submitCode() / acquire().
 // Escape hatch:
 await morph.auth('burgan-auth/1fa').setTokens({
   accessToken: 'eyJhbGciOiJSUzI1NiIs...',

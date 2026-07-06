@@ -59,6 +59,7 @@ All token endpoint calls (authorization_code, refresh_token, client_credentials,
 ### autoAcquireNonInteractive
 
 When `oauth2Plugin({ autoAcquireNonInteractive: true })` is set and `onAuthRequired` fires for a context with `interaction: 'non-interactive'`, the plugin automatically calls `acquireWithClientCredentials` for that context. This avoids requiring the host app to handle device-token acquisition in every `onAuthRequired` callback.
+When `MorphOptions.autoAcquireNonInteractive` is `true` and `onAuthRequired` fires for a context with `interaction: 'non-interactive'`, the SDK automatically calls `acquire` for that context. This avoids requiring the host app to handle device-token acquisition in every `onAuthRequired` implementation.
 
 ### Proactive vs. Reactive Refresh
 

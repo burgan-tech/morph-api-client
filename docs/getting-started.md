@@ -110,6 +110,32 @@ const morph = MorphClient.init(config, {
       autoAcquireNonInteractive: true,
     }),
   ],
+  storage: createBrowserSessionStorage('myapp:tk:'),
+
+  callbacks: {
+    onAuthRequired: (authId, metadata) => {
+      if (metadata.interaction === 'non-interactive') {
+        morph.auth(authId).acquire();
+      } else if (metadata.interaction === 'interactive') {
+        router.navigate('/login', { authId });
+      }
+    },
+    onLogout: (authId, reason) => {
+      console.log(`Logged out of ${authId}: ${reason}`);
+      if (authId === 'my-auth/user') {
+        router.navigate('/login');
+      }
+    },
+  },
+
+  variables: {
+    deviceClientId: 'device-client-abc',
+    deviceClientSecret: 'device-secret-xyz',
+    userClientId: 'user-client-def',
+    userClientSecret: 'user-secret-uvw',
+    oauthRedirectUri: `${window.location.origin}/oauth/callback`,
+    deviceId: getDeviceId(),
+  },
 });
 ```
 
@@ -180,7 +206,7 @@ await morph.auth('google-auth/google').submitCode(code, { codeVerifier: pkceVeri
 For non-interactive flows (device tokens), the SDK can acquire tokens autonomously:
 
 ```typescript
-await morph.auth('my-auth/device').acquireWithClientCredentials();
+await morph.auth('my-auth/device').acquire();
 ```
 
 For step-up auth, the SDK exchanges one token for another. Called on the **source**, target is the parameter:

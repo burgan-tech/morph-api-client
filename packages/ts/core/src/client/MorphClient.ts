@@ -1,4 +1,4 @@
-import type { MorphConfig, MorphOptions, MorphProviderMeta, MorphTokenStatus, OAuthReturnResult } from '../types.js';
+import type { MorphConfig, MorphOptions, MorphProviderMeta, MorphTokenStatus, OAuthReturnResult, ProviderConfig, HostConfig } from '../types.js';
 import { createRuntime, MorphRuntime } from '../runtime.js';
 import { AuthHandle } from './AuthHandle.js';
 import { HostClient } from './HostClient.js';
@@ -30,6 +30,18 @@ export class MorphClient {
   getTokenStatus(): Promise<MorphTokenStatus[]> {
     this.rt.assertAlive();
     return this.rt.getTokenStatus();
+  }
+
+  /** Raw provider configs directly from `resolved.config.providers`. */
+  getProviders(): ProviderConfig[] {
+    this.rt.assertAlive();
+    return this.rt.resolved.config.providers;
+  }
+
+  /** Raw host configs directly from `resolved.config.hosts`. */
+  getHosts(): HostConfig[] {
+    this.rt.assertAlive();
+    return this.rt.resolved.config.hosts;
   }
 
   /** Sanitized provider + contexts (no secrets). */

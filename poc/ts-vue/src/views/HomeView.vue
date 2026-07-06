@@ -187,7 +187,7 @@ async function runAcquire(authId: string) {
   busy.value = true;
   message.value = '';
   try {
-    await morph.auth(authId).acquireWithClientCredentials();
+    await morph.auth(authId).acquire();
     message.value = `Token acquired (${authId}).`;
     await refreshStatus();
   } catch (e) {

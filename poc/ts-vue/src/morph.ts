@@ -9,6 +9,7 @@ import { browserStoragePlugin } from '@morph/browser-storage';
 import { loggerPlugin } from '@morph/logger';
 import morphConfigJson from '../../../docs/poc/poc-config.json';
 import { pushHostHttpTrace } from './hostHttpTraceStore';
+import { WebSimIdentity } from './deviceIdentity';
 
 /**
  * Deep-clone `docs/poc/poc-config.json` and apply PoC-wide runtime flags only (no per-provider key hacks — proxies live in config + `variables`).
@@ -62,40 +63,6 @@ const STORAGE_PREFIX = 'morph-poc:tk:';
  * Web PoC simulation: browser profile ≈ device (localStorage), browser tab session ≈ install (sessionStorage — new tab/session ⇒ new installationId).
  * Set VITE_DEVICE_ID / VITE_INSTALLATION_ID to pin values (CI, demos).
  */
-const WEB_SIM_DEVICE_KEY = 'morph-poc:device-id';
-const WEB_SIM_INSTALL_KEY = 'morph-poc:installation-id';
-
-function readOrCreateWebSimDeviceId(): string {
-  const fromEnv = import.meta.env.VITE_DEVICE_ID?.trim();
-  if (fromEnv) return fromEnv;
-  if (typeof localStorage === 'undefined') return 'poc-device-anon';
-  try {
-    let id = localStorage.getItem(WEB_SIM_DEVICE_KEY);
-    if (!id) {
-      id = crypto.randomUUID();
-      localStorage.setItem(WEB_SIM_DEVICE_KEY, id);
-    }
-    return id;
-  } catch {
-    return `poc-device-${crypto.randomUUID()}`;
-  }
-}
-
-function readOrCreateWebSimInstallationId(): string {
-  const fromEnv = import.meta.env.VITE_INSTALLATION_ID?.trim();
-  if (fromEnv) return fromEnv;
-  if (typeof sessionStorage === 'undefined') return 'poc-install-anon';
-  try {
-    let id = sessionStorage.getItem(WEB_SIM_INSTALL_KEY);
-    if (!id) {
-      id = crypto.randomUUID();
-      sessionStorage.setItem(WEB_SIM_INSTALL_KEY, id);
-    }
-    return id;
-  } catch {
-    return `poc-install-${crypto.randomUUID()}`;
-  }
-}
 
 function keycloakRealmOidcPath(host: string): string {
   return `${host.replace(/\/$/, '')}/realms/morph/protocol/openid-connect`;
@@ -107,8 +74,8 @@ function variables(): Record<string, string> {
   const useDynamicRedirect = import.meta.env.DEV;
   const oauthBase = useDynamicRedirect ? normalizeLoopbackOrigin(origin) : origin.replace(/\/$/, '');
   return {
-    deviceId: readOrCreateWebSimDeviceId(),
-    installationId: readOrCreateWebSimInstallationId(),
+    deviceId: WebSimIdentity.getDeviceId(),
+    installationId: WebSimIdentity.getInstallationId(),
     deviceClientSecret: v.VITE_DEVICE_CLIENT_SECRET ?? '',
     loginClientSecret: v.VITE_LOGIN_CLIENT_SECRET ?? '',
     sessionClientSecret: v.VITE_SESSION_CLIENT_SECRET ?? '',

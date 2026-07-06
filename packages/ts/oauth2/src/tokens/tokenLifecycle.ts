@@ -3,7 +3,6 @@ import type {
   AuthPlugin,
   CtxRef,
   LogoutReason,
-  MorphCallbacks,
   ProviderConfig,
   StorageProvider,
   TokenExchangeGrant,
@@ -11,15 +10,9 @@ import type {
 } from '@morph/core';
 import type { ResolvedMorphConfig } from '@morph/core';
 import { AuthError, UnknownContextError } from '@morph/core';
+import type { OAuth2TokenOptions } from './oauth2TokenOptions.js';
 
-export interface OAuth2TokenOptions {
-  callbacks: MorphCallbacks;
-  variables: Record<string, string>;
-  onTokenExchange?: (grant: TokenExchangeGrant) => Promise<TokenSet | null>;
-  onClientJwtAssertion?: (authId: string) => Promise<string | null>;
-  autoAcquireNonInteractive?: boolean;
-  onLog?: (level: 'debug' | 'info' | 'warn' | 'error', message: string, error?: Error, context?: Record<string, unknown>) => void;
-}
+export type { OAuth2TokenOptions } from './oauth2TokenOptions.js';
 import { TokenVault } from './tokenVault.js';
 import {
   buildClientAuthFields,
@@ -66,10 +59,6 @@ export class TokenLifecycle implements AuthPlugin {
     const next = prev.then(() => fn());
     this.locks.set(authId, next.then(() => undefined, () => undefined));
     return next;
-  }
-
-  private policyFor(provider: ProviderConfig, ctx: AuthContextConfig) {
-    return ctx.networkPolicy ?? provider.networkPolicy;
   }
 
   private providerTokenHttpBase(provider: ProviderConfig): string {
@@ -120,7 +109,7 @@ export class TokenLifecycle implements AuthPlugin {
     const custom = await this.opts.onTokenExchange?.(grantInfo);
     if (custom) return custom;
 
-    const r = await postTokenRequest(url, body, headers, this.policyFor(provider, ctx), this.log);
+    const r = await postTokenRequest(url, body, headers, provider, ctx, this.log);
     return this.oauthToSet(ctx, r, preserveRefresh);
   }
 
@@ -130,8 +119,21 @@ export class TokenLifecycle implements AuthPlugin {
       { type: 'refresh_token', authId, refreshToken }, preserve);
   }
 
-  private fetchClientCredentialsSet(authId: string, ref: CtxRef): Promise<TokenSet> {
-    return this.executeGrant(authId, ref, 'client_credentials', {},
+  private async fetchClientCredentialsSet(
+    authId: string,
+    ref: CtxRef,
+    grantType = 'client_credentials',
+  ): Promise<TokenSet> {
+    let extraFields: Record<string, string> = {};
+    if (grantType !== 'client_credentials' && this.opts.callbacks.onCustomGrant) {
+      extraFields = await this.opts.callbacks.onCustomGrant({
+        authId,
+        grantType,
+        context: ref.context,
+        variables: this.variables,
+      }) ?? {};
+    }
+    return this.executeGrant(authId, ref, grantType, extraFields,
       { type: 'client_credentials', authId });
   }
 
@@ -174,7 +176,8 @@ export class TokenLifecycle implements AuthPlugin {
 
   async acquireWithClientCredentials(authId: string, ref: CtxRef): Promise<void> {
     await this.withLock(authId, async () => {
-      const set = await this.fetchClientCredentialsSet(authId, ref);
+      const grantType = ref.context.token.grantType ?? 'client_credentials';
+      const set = await this.fetchClientCredentialsSet(authId, ref, grantType);
       await this.persistAndNotify(authId, ref, set);
       this.doLog('info', 'Client credentials token stored', undefined, { authId });
     });
@@ -216,7 +219,7 @@ export class TokenLifecycle implements AuthPlugin {
         const headers = mergeHeaders(provider, ctx, this.variables);
         const body: Record<string, string> = { ...clientFields };
         if (set?.refreshToken) body.refresh_token = set.refreshToken;
-        await postTokenRequest(url, body, headers, this.policyFor(provider, ctx), this.log);
+        await postTokenRequest(url, body, headers, provider, ctx, this.log);
       } catch (e) {
         this.doLog('warn', 'Logout endpoint failed', e instanceof Error ? e : undefined, { authId });
       }

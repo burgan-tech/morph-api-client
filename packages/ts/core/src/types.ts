@@ -56,6 +56,12 @@ export interface AuthContextConfig {
   };
   token: {
     endpoint: string;
+    /**
+     * Custom OAuth `grant_type` sent to the token endpoint when calling `acquire`.
+     * Defaults to `client_credentials`. When set to a non-standard value (e.g. a proprietary URN),
+     * `MorphOptions.onCustomGrant` is invoked so the host app can supply additional body fields.
+     */
+    grantType?: string;
     exchangeEndpoint?: string;
     /**
      * Auth id(s) whose access token may be exchanged (RFC 8693) for this context's tokens.
@@ -81,6 +87,11 @@ export interface ProviderConfig {
   /** Canonical issuer / default base (supports `$variable` interpolation). Used when `tokenHttpBaseUrl` is unset or resolves empty after interpolation. */
   baseUrl: string;
   /**
+   * Content-Type used for token endpoint POST requests.
+   * Defaults to `'application/x-www-form-urlencoded'` when unset.
+   */
+  contentType?: 'application/x-www-form-urlencoded' | 'application/json';
+  /**
    * If set (supports `$variable` interpolation), browser authorize redirects use this origin instead of `baseUrl`.
    * Use when `baseUrl` points at a same-origin dev proxy: the IdP login page must load from the real host so `/resources/...`
    * assets resolve.
@@ -91,6 +102,12 @@ export interface ProviderConfig {
    * instead of `baseUrl`. Use for same-origin CORS proxies (e.g. Vite `/__keycloak`) while keeping `baseUrl` as the real issuer.
    */
   tokenHttpBaseUrl?: string;
+  /**
+   * Base URL for mTLS (mutual TLS) endpoints on this provider (supports `$variable` interpolation).
+   * Not used by the SDK internally — exposed via `getProviderMeta` so host apps can construct
+   * certificate-related request URLs (e.g. `/certificate/create`).
+   */
+  mtlsBaseUrl?: string;
   networkPolicy?: NetworkPolicy;
   headers?: Record<string, string>;
   contexts: AuthContextConfig[];
@@ -160,6 +177,8 @@ export interface MorphProviderMeta {
   baseUrl: string;
   authorizationBrowserBaseUrl?: string;
   tokenHttpBaseUrl?: string;
+  /** mTLS base URL as configured in {@link ProviderConfig.mtlsBaseUrl} (after `$variable` interpolation). */
+  mtlsBaseUrl?: string;
   networkPolicy?: NetworkPolicy;
   headers?: Record<string, string>;
   contexts: MorphContextMeta[];
@@ -214,6 +233,12 @@ export interface MorphCallbacks {
   onAuthRequired: (authId: string, metadata: DelegateMetadata) => void;
   onLogout: (authId: string, reason: LogoutReason) => void;
   onTokenChange?: (authId: string, tokens: TokenSet | null) => void;
+  onCustomGrant?: (params: {
+    authId: string;
+    grantType: string;
+    context: AuthContextConfig;
+    variables: Record<string, string>;
+  }) => Promise<Record<string, string> | null>;
 }
 
 export interface ProxyConfig {
@@ -299,6 +324,24 @@ export interface MorphOptions {
     context?: Record<string, unknown>,
   ) => void;
   onHttpTrace?: (event: MorphHttpTraceEvent) => void;
+  /**
+   * When `clientAuth` is `private_key_jwt`, return a signed client assertion JWT for the token endpoint.
+   * If omitted and `clientSecret` is present, client_secret is used instead (e.g. PoC Keycloak).
+   */
+  onClientJwtAssertion?: (authId: string) => Promise<string | null>;
+  /**
+   * Called when `token.grantType` is set to a non-standard value and `acquire` is invoked.
+   * Return extra body fields to merge into the token request (e.g. proprietary claims).
+   * Return `null` to skip custom fields and let the SDK send only the standard fields.
+   */
+  onCustomGrant?: (params: {
+    authId: string;
+    grantType: string;
+    context: AuthContextConfig;
+    variables: Record<string, string>;
+  }) => Promise<Record<string, string> | null>;
+  /** When true, SDK automatically calls `acquire` for contexts with `interaction: 'non-interactive'` on `onAuthRequired`. Default false. */
+  autoAcquireNonInteractive?: boolean;
 
   /** @internal Resolved by plugin system during init. Do not set directly. */
   _resolvedAuth?: AuthPlugin;

@@ -17,12 +17,13 @@ export class AuthHandle {
     await this.rt.tokens.submitCode(r.authId, r.ref, code, opts);
   }
 
-  async acquireWithClientCredentials(): Promise<void> {
+  async acquire(): Promise<void> {
     const r = this.rt.parseAuthRef(this.authId);
-    if (r.kind !== 'context') throw new Error('acquireWithClientCredentials requires a provider/context auth id');
+    if (r.kind !== 'context') throw new Error('acquire requires a provider/context auth id');
     this.rt.assertAlive();
     await this.rt.tokens.acquireWithClientCredentials(r.authId, r.ref);
   }
+
 
   async exchangeToken(targetAuthId: string): Promise<void> {
     const r = this.rt.parseAuthRef(this.authId);

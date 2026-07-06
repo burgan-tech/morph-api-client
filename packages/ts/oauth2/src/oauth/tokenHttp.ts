@@ -21,14 +21,24 @@ function mergeHeaders(
   return { ...base, ...extra };
 }
 
-/** Executes form POST to token endpoint with retries. */
+function policyFor(provider: ProviderConfig, ctx: AuthContextConfig): NetworkPolicy | undefined {
+  return ctx.networkPolicy ?? provider.networkPolicy;
+}
+
+/** Executes a POST to the token endpoint with retries, reading policy and content-type from provider/ctx. */
 export async function postTokenRequest(
   url: string,
   body: Record<string, string>,
   headers: Record<string, string>,
-  policy: NetworkPolicy | undefined,
+  provider: ProviderConfig,
+  ctx: AuthContextConfig,
   log?: (level: 'debug' | 'info' | 'warn' | 'error', message: string, error?: Error, context?: Record<string, unknown>) => void,
 ): Promise<OAuthTokenResponse> {
+
+  const contentType = provider.contentType ?? 'application/x-www-form-urlencoded';
+  const isJson = contentType === 'application/json';
+  
+  const policy = policyFor(provider, ctx);
   const timeoutMs = parseDurationMs(policy?.timeout, 30_000);
   const retries = policy?.retry?.count ?? 0;
   const delayMs = parseDurationMs(policy?.retry?.delay, 200);
@@ -42,10 +52,10 @@ export async function postTokenRequest(
       const res = await fetch(url, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
+          'Content-Type': contentType,
           ...headers,
         },
-        body: new URLSearchParams(body),
+        body: isJson ? JSON.stringify(body) : new URLSearchParams(body),
         signal,
       });
       clearTimeout(timer);

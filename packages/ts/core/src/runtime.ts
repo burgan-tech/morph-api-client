@@ -262,6 +262,9 @@ export class MorphRuntime {
       key: p.key, type: p.type, baseUrl: p.baseUrl,
       authorizationBrowserBaseUrl: p.authorizationBrowserBaseUrl,
       tokenHttpBaseUrl: p.tokenHttpBaseUrl,
+      mtlsBaseUrl: p.mtlsBaseUrl
+        ? interpolateString(p.mtlsBaseUrl, this.variables)
+        : undefined,
       networkPolicy: p.networkPolicy, headers: p.headers, contexts,
     };
   }
@@ -294,9 +297,9 @@ export class MorphRuntime {
     const r = this.parseAuthRef(authId);
     if (r.kind !== 'context') throw new UnknownContextError(authId);
     const { provider: p, context: c } = r.ref;
-    const authz = c.authorization!;
-    const redirectUri = interpolateString(authz.redirectUri!.trim(), this.variables);
-    const clientId = interpolateString(c.clientId!.trim(), this.variables);
+    const contextAuthorization = c.authorization!;
+    const redirectUri = interpolateString(contextAuthorization.redirectUri!.trim(), this.variables);
+    const clientId = c.clientId!.trim();
     const state = opts?.state ?? encodeOAuthState(authId);
     const browserBaseRaw = p.authorizationBrowserBaseUrl?.trim();
     const authorizeBase = browserBaseRaw && browserBaseRaw.length > 0
@@ -304,9 +307,9 @@ export class MorphRuntime {
       : interpolateString(p.baseUrl.trim(), this.variables);
     return buildOAuth2AuthorizationUrl({
       baseUrl: authorizeBase,
-      authorizationPath: interpolateString(authz.endpoint.trim(), this.variables),
+      authorizationPath: interpolateString(contextAuthorization.endpoint.trim(), this.variables),
       clientId, redirectUri, scopes: c.scopes,
-      responseType: authz.responseType, extraParams: authz.extraParams, state,
+      responseType: contextAuthorization.responseType, extraParams: contextAuthorization.extraParams, state,
     });
   }
 
