@@ -8,3 +8,6 @@ dist/
 # Dart (packages/dart/*)
 .dart_tool/
 **/packages/dart/**/.dart_tool/
+
+# Library packages must not commit pubspec.lock (poc/apps keep theirs)
+packages/dart/*/pubspec.lock
